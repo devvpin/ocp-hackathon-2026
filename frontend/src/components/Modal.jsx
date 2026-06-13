@@ -3,20 +3,33 @@ import { createPortal } from 'react-dom';
 export default function Modal({ isOpen, onClose, title, children, size = 'md', className = '' }) {
   const overlayRef = useRef(null);
   const contentRef = useRef(null);
+  const focusedOnOpenRef = useRef(false);
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen) {
+      focusedOnOpenRef.current = false;
+      return;
+    }
+    
+    // Only focus on initial open, not on every re-render
+    if (focusedOnOpenRef.current) return;
+    
     const handleEscape = (e) => {
       if (e.key === 'Escape') onClose();
     };
     document.addEventListener('keydown', handleEscape);
     document.body.style.overflow = 'hidden';
-    // Focus trap
+    
+    // Focus trap - only run once when modal opens
     const focusableElements = contentRef.current?.querySelectorAll(
-      'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+      'input, textarea, select, button:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])'
     );
     if (focusableElements?.length) {
-      focusableElements[0].focus();
+      // Focus on first input/textarea if available, otherwise first focusable element
+      const inputElement = Array.from(focusableElements).find(el => el.matches('input, textarea'));
+      (inputElement || focusableElements[0]).focus();
+      focusedOnOpenRef.current = true;
     }
+    
     return () => {
       document.removeEventListener('keydown', handleEscape);
       document.body.style.overflow = '';
