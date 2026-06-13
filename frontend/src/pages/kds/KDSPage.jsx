@@ -1,6 +1,7 @@
 import { useState, useEffect, useReducer } from 'react';
 import kdsApi from '../../api/kds';
 import { useToast } from '../../context/ToastContext';
+import { useAuth } from '../../context/AuthContext';
 import SearchBar from '../../components/SearchBar';
 const stages = [
   { key: 'to_cook', label: 'TO COOK', color: 'bg-warning-500', textColor: 'text-warning-900', bgLight: 'bg-warning-50' },
@@ -40,6 +41,7 @@ function ordersReducer(state, action) {
 }
 export default function KDSPage() {
   const { error: showError } = useToast();
+  const { isAdmin } = useAuth();
   const [orders, dispatch] = useReducer(ordersReducer, []);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -56,15 +58,28 @@ export default function KDSPage() {
     // Poll for new orders every 5 seconds (simulates real-time)
     const interval = setInterval(fetchOrders, 5000);
     return () => clearInterval(interval);
-  }, []);
-  const handleAdvanceStage = async (orderId) => {
+  }, [showError]);
+  const handleAdvanceStage = async (orderId, currentStage) => {
+    if (!isAdmin) {
+      showError('Employees have view-only access to KDS.');
+      return;
+    }
+    const stageKeys = stages.map(s => s.key);
+    const currentIdx = stageKeys.indexOf(currentStage);
+    if (currentIdx >= stageKeys.length - 1) return;
+    const newStage = stageKeys[currentIdx + 1];
+
     try {
       dispatch({ type: 'ADVANCE_STAGE', payload: orderId });
-      await kdsApi.advanceStage(orderId);
+      await kdsApi.advanceStage(orderId, newStage);
     } catch { showError('Failed to update order'); }
   };
   const handleToggleItem = async (orderId, itemId, e) => {
     e.stopPropagation();
+    if (!isAdmin) {
+      showError('Employees have view-only access to KDS.');
+      return;
+    }
     try {
       dispatch({ type: 'TOGGLE_ITEM', payload: { orderId, itemId } });
       await kdsApi.toggleItemComplete(orderId, itemId);
@@ -125,13 +140,13 @@ export default function KDSPage() {
                   stageOrders.map((order) => (
                     <div
                       key={order.id}
-                      onClick={() => handleAdvanceStage(order.id)}
-                      className={`bg-white rounded-xl p-4 shadow-sm border-l-4 cursor-pointer hover:shadow-lg transition-all active:scale-[0.98] animate-slide-up`}
+                      onClick={() => isAdmin && handleAdvanceStage(order.id, order.stage)}
+                      className={`bg-white rounded-xl p-4 shadow-sm border-l-4 transition-all animate-slide-up ${isAdmin ? 'cursor-pointer hover:shadow-lg active:scale-[0.98]' : ''}`}
                       style={{ borderLeftColor: stage.color.replace('bg-', '').includes('warning') ? '#F59E0B' : stage.color.includes('primary') ? '#3B82F6' : '#22C55E' }}
                     >
                       <div className="flex items-center justify-between mb-3">
                         <span className="text-xl font-extrabold text-surface-900">#{order.orderNumber}</span>
-                        {stage.key !== 'completed' && (
+                        {stage.key !== 'completed' && isAdmin && (
                           <svg className="w-5 h-5 text-surface-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                           </svg>
@@ -141,8 +156,8 @@ export default function KDSPage() {
                         {order.items.map((item) => (
                           <div
                             key={item.id}
-                            onClick={(e) => handleToggleItem(order.id, item.id, e)}
-                            className={`flex items-center gap-2 px-2 py-1.5 rounded-lg transition-all cursor-pointer hover:bg-surface-50 ${
+                            onClick={(e) => isAdmin && handleToggleItem(order.id, item.id, e)}
+                            className={`flex items-center gap-2 px-2 py-1.5 rounded-lg transition-all ${isAdmin ? 'cursor-pointer hover:bg-surface-50' : ''} ${
                               item.completed ? 'opacity-50' : ''
                             }`}
                           >

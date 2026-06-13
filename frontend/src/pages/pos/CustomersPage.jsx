@@ -5,10 +5,11 @@ import { useCart } from '../../context/CartContext';
 import SearchBar from '../../components/SearchBar';
 import Button from '../../components/Button';
 import Modal from '../../components/Modal';
+import { useNavigate } from 'react-router-dom';
 import ConfirmDialog from '../../components/ConfirmDialog';
 export default function CustomersPage() {
   const { success, error: showError } = useToast();
-  const { setCustomer } = useCart();
+  const { setCustomer, setTable } = useCart();
   const [customers, setCustomers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -57,9 +58,28 @@ export default function CustomersPage() {
       fetchData();
     } catch { showError('Failed to delete customer'); }
   };
-  const handleSelect = (c) => {
+  const [seatCustomer, setSeatCustomer] = useState(null);
+  const [availableTables, setAvailableTables] = useState([]);
+  const [loadingTables, setLoadingTables] = useState(false);
+  const navigate = useNavigate();
+
+  const handleSelect = async (c) => {
     setCustomer(c);
-    success(`${c.name} assigned to current order`);
+    setSeatCustomer(c);
+    setLoadingTables(true);
+    try {
+      const { default: tablesApi } = await import('../../api/tables');
+      const res = await tablesApi.getAllTables();
+      setAvailableTables(res.data.filter(t => t.active && t.status !== 'occupied'));
+    } catch { showError('Failed to load tables'); }
+    setLoadingTables(false);
+  };
+
+  const assignToTable = (table) => {
+    setCustomer(seatCustomer);
+    setTable(table.id, table.number);
+    success(`${seatCustomer.name} assigned to Table ${table.number}`);
+    navigate(`/pos/order/${table.id}`);
   };
   return (
     <div className="p-6 space-y-6 animate-fade-in overflow-auto h-full">
@@ -125,6 +145,36 @@ export default function CustomersPage() {
           </div>
         </div>
       </Modal>
+
+      <Modal isOpen={!!seatCustomer} onClose={() => setSeatCustomer(null)} title={`Seat ${seatCustomer?.name}`} size="md">
+        <div className="space-y-4">
+          <p className="text-sm text-surface-500">Select an available table to start their order.</p>
+          {loadingTables ? (
+            <div className="flex justify-center p-6"><div className="w-8 h-8 border-4 border-primary-500 border-t-transparent rounded-full animate-spin"></div></div>
+          ) : availableTables.length === 0 ? (
+            <div className="text-center p-6 bg-surface-50 rounded-xl border border-surface-200 text-surface-500">
+              No tables currently available.
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 max-h-96 overflow-y-auto p-1">
+              {availableTables.map(t => (
+                <button
+                  key={t.id}
+                  onClick={() => assignToTable(t)}
+                  className="bg-white border-2 border-surface-200 hover:border-primary-500 hover:bg-primary-50 rounded-xl p-4 transition-all text-center group"
+                >
+                  <p className="text-lg font-bold text-surface-900 group-hover:text-primary-700">T{t.number}</p>
+                  <p className="text-xs text-surface-500 font-medium mt-1">{t.seats} seats</p>
+                </button>
+              ))}
+            </div>
+          )}
+          <div className="flex justify-end pt-2">
+            <Button variant="ghost" onClick={() => setSeatCustomer(null)}>Cancel</Button>
+          </div>
+        </div>
+      </Modal>
+
       <ConfirmDialog isOpen={!!deleteId} onClose={() => setDeleteId(null)} onConfirm={handleDelete} title="Delete Customer" message="This action cannot be undone." confirmText="Delete" />
     </div>
   );

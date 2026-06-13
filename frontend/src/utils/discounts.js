@@ -11,31 +11,33 @@ export function applyProductPromotions(cartItems, promotions) {
   const productPromos = promotions.filter((p) => p.appliedTo === 'product');
 
   return cartItems.map((item) => {
-    const promo = productPromos.find(
-      (p) => p.productId === item.productId && item.quantity >= p.minimumQuantity
+    const itemPromos = productPromos.filter(
+      (p) => p.productId === item.productId && (!p.minQuantity || item.quantity >= p.minQuantity)
     );
 
-    if (promo) {
-      let discountAmount = 0;
+    let discountAmount = 0;
+    for (const promo of itemPromos) {
       if (promo.discountType === 'percentage') {
-        discountAmount = (item.price * item.quantity * promo.discountValue) / 100;
+        discountAmount += (item.price * item.quantity * promo.discountValue) / 100;
       } else {
-        discountAmount = Math.min(promo.discountValue, item.price * item.quantity);
+        discountAmount += Number(promo.discountValue);
       }
-      return {
-        ...item,
-        discount: Math.round(discountAmount * 100) / 100,
-        promoApplied: promo,
-      };
     }
+    
+    // Cap discount to line total
+    discountAmount = Math.min(discountAmount, item.price * item.quantity);
 
-    return { ...item, discount: 0, promoApplied: null };
+    return {
+      ...item,
+      discount: Math.round(discountAmount * 100) / 100,
+      promoApplied: itemPromos.length > 0 ? itemPromos[0] : null,
+    };
   });
 }
 
 /**
  * Apply order-level promotions to the cart subtotal.
- * When cart subtotal >= minimumOrderAmount, apply discount to order total.
+ * When cart subtotal >= minOrderAmount, apply discount to order total.
  */
 export function applyOrderPromotions(subtotal, promotions) {
   const orderPromos = promotions.filter((p) => p.appliedTo === 'order');
@@ -43,17 +45,15 @@ export function applyOrderPromotions(subtotal, promotions) {
   let appliedPromo = null;
 
   for (const promo of orderPromos) {
-    if (subtotal >= promo.minimumOrderAmount) {
+    if (promo.minOrderAmount === null || subtotal >= promo.minOrderAmount) {
       let discount = 0;
       if (promo.discountType === 'percentage') {
         discount = (subtotal * promo.discountValue) / 100;
       } else {
-        discount = Math.min(promo.discountValue, subtotal);
+        discount = Number(promo.discountValue);
       }
-      if (discount > orderDiscount) {
-        orderDiscount = discount;
-        appliedPromo = promo;
-      }
+      orderDiscount += discount;
+      if (!appliedPromo) appliedPromo = promo;
     }
   }
 

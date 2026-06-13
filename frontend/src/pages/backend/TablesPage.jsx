@@ -72,6 +72,19 @@ export default function TablesPage() {
       fetchData();
     } catch { showError('Failed to delete table'); }
   };
+  const [deleteFloorId, setDeleteFloorId] = useState(null);
+  const handleDeleteFloor = async () => {
+    try {
+      await tablesApi.deleteFloor(deleteFloorId);
+      success('Floor deleted');
+      setFloors(floors.filter(f => f.id !== deleteFloorId));
+      if (activeFloor === deleteFloorId) {
+        const remaining = floors.filter(f => f.id !== deleteFloorId);
+        setActiveFloor(remaining.length > 0 ? remaining[0].id : null);
+      }
+      setDeleteFloorId(null);
+    } catch { showError('Failed to delete floor'); }
+  };
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="flex items-center justify-between">
@@ -85,15 +98,25 @@ export default function TablesPage() {
         </div>
       </div>
       {/* Floor Tabs */}
-      <div className="flex gap-2 flex-wrap">
+      <div className="flex gap-2 flex-wrap items-center">
         {floors.map((floor) => (
-          <button
-            key={floor.id}
-            onClick={() => setActiveFloor(floor.id)}
-            className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${activeFloor === floor.id ? 'bg-primary-600 text-white shadow-md' : 'bg-white text-surface-600 border border-surface-200 hover:bg-surface-50'}`}
-          >
-            {floor.name}
-          </button>
+          <div key={floor.id} className="relative group flex items-center">
+            <button
+              onClick={() => setActiveFloor(floor.id)}
+              className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${activeFloor === floor.id ? 'bg-primary-600 text-white shadow-md pr-9' : 'bg-white text-surface-600 border border-surface-200 hover:bg-surface-50 pr-9'}`}
+            >
+              {floor.name}
+            </button>
+            <button
+              onClick={(e) => { e.stopPropagation(); setDeleteFloorId(floor.id); }}
+              className="absolute right-2 text-surface-400 hover:text-danger-500 opacity-0 group-hover:opacity-100 transition-opacity"
+              aria-label="Delete floor"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
         ))}
       </div>
       {/* Table Grid */}
@@ -170,6 +193,7 @@ export default function TablesPage() {
         </div>
       </Modal>
       <ConfirmDialog isOpen={!!deleteTableId} onClose={() => setDeleteTableId(null)} onConfirm={handleDeleteTable} title="Delete Table" message="Remove this table from the floor plan?" confirmText="Delete" />
+      <ConfirmDialog isOpen={!!deleteFloorId} onClose={() => setDeleteFloorId(null)} onConfirm={handleDeleteFloor} title="Delete Floor" message="Are you sure you want to delete this floor and all its tables? This action cannot be undone." confirmText="Delete" />
     </div>
   );
 }

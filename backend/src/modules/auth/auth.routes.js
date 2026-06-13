@@ -33,7 +33,7 @@ const authLimiter = rateLimit({
     }),
 });
 
-router.use(authLimiter);
+// Removed router.use(authLimiter) so it doesn't limit /me and /logout
 
 const signupSchema = z.object({
   name: z.string().trim().min(1, 'Name is required.'),
@@ -74,7 +74,7 @@ function buildAuthResponse(user) {
   return { user: safeUser, token };
 }
 
-router.post('/signup', validate(signupSchema), async (req, res, next) => {
+router.post('/signup', authLimiter, validate(signupSchema), async (req, res, next) => {
   try {
     const { name, email, password } = req.validated.body;
     const userCount = await prisma.user.count();
@@ -103,7 +103,7 @@ router.post('/signup', validate(signupSchema), async (req, res, next) => {
   }
 });
 
-router.post('/login', validate(loginSchema), async (req, res, next) => {
+router.post('/login', authLimiter, validate(loginSchema), async (req, res, next) => {
   try {
     const { email, password } = req.validated.body;
     const user = await prisma.user.findUnique({ where: { email } });

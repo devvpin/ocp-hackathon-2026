@@ -9,6 +9,7 @@ function normalizeTable(table, status) {
     active: table.isActive,
     status: status?.occupied ? 'occupied' : 'available',
     orderId: status?.orderId ?? null,
+    customerName: status?.customerName ?? null,
   };
 }
 

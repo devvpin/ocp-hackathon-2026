@@ -18,8 +18,8 @@ export default function OrderPage() {
   const navigate = useNavigate();
   const { success, error: showError } = useToast();
   const {
-    items, tableNumber, customer, totals, coupon,
-    addItem, removeItem, updateQuantity, setTable,
+    items, tableNumber, customer, totals, coupon, orderId,
+    addItem, removeItem, updateQuantity, setTable, setOrderId,
     setCustomer, setCoupon, removeCoupon, clearCart, loadOrder,
   } = useCart();
   const [products, setProducts] = useState([]);
@@ -118,7 +118,7 @@ export default function OrderPage() {
     if (items.length === 0) { showError('Cart is empty'); return; }
     try {
       // Create or update the order as a draft first, then send to kitchen
-      const editOrderId = searchParams.get('orderId');
+      const editOrderId = searchParams.get('orderId') || orderId;
       const payload = {
         tableId: tableId || null,
         customerId: customer?.id || null,
@@ -134,10 +134,29 @@ export default function OrderPage() {
       }
 
       await ordersApi.sendToKitchen(savedOrder.data.id);
+      setOrderId(savedOrder.data.id);
       success('Order sent to kitchen!');
     } catch (err) {
       const msg = err?.response?.data?.error?.message || 'Failed to send to kitchen';
       showError(msg);
+    }
+  };
+  const handleCancelOrder = async () => {
+    const editOrderId = searchParams.get('orderId') || orderId;
+    if (!editOrderId) {
+      clearCart();
+      navigate('/pos/tables');
+      return;
+    }
+    if (window.confirm('Are you sure you want to cancel this order? This will free the table.')) {
+      try {
+        await ordersApi.cancel(editOrderId);
+        success('Order cancelled and table freed');
+        clearCart();
+        navigate('/pos/tables');
+      } catch (err) {
+        showError('Failed to cancel order');
+      }
     }
   };
   const handleCompletePayment = async () => {
@@ -145,7 +164,7 @@ export default function OrderPage() {
     if (!selectedPayment) { showError('Select a payment method'); return; }
     setPaymentLoading(true);
     try {
-      // Build payload for real backend API
+      const editOrderId = searchParams.get('orderId') || orderId;
       const createPayload = {
         tableId: tableId || null,
         customerId: customer?.id || null,
@@ -156,18 +175,27 @@ export default function OrderPage() {
       };
       if (coupon?.code) createPayload.couponCode = coupon.code;
 
-      const res = await ordersApi.create(createPayload);
-      const orderId = res.data.id;
+      let paymentOrderId;
+      let orderNumber;
+      if (editOrderId) {
+        const res = await ordersApi.update(editOrderId, createPayload);
+        paymentOrderId = res.data.id;
+        orderNumber = res.data.orderNumber;
+      } else {
+        const res = await ordersApi.create(createPayload);
+        paymentOrderId = res.data.id;
+        orderNumber = res.data.orderNumber;
+      }
 
       // Build payment args
       const payRef = selectedPayment === 'card' ? (cardRef || 'card-txn') : (selectedPayment === 'upi' ? 'upi-txn' : null);
       const cashAmt = selectedPayment === 'cash' ? Number(cashTendered || totals.total) : null;
-      await ordersApi.markPaid(orderId, selectedPayment, payRef, cashAmt);
+      await ordersApi.markPaid(paymentOrderId, selectedPayment, payRef, cashAmt);
 
       // Display receipt
       setCompletedOrder({
-        id: orderId,
-        orderNumber: res.data.orderNumber,
+        id: paymentOrderId,
+        orderNumber: orderNumber,
         tableNumber: tableNumber || Number(tableId),
         customerName: customer?.name || 'Walk-in',
         paymentMethod: selectedPayment,
@@ -175,6 +203,7 @@ export default function OrderPage() {
           name: i.name,
           quantity: i.quantity,
           total: i.price * i.quantity,
+          discount: i.discount || 0,
         })),
         subtotal: totals.subtotal,
         tax: totals.taxTotal,
@@ -312,9 +341,29 @@ export default function OrderPage() {
       {/* CENTER - Cart */}
       <div className="w-80 flex flex-col bg-white border-r border-surface-200 flex-shrink-0">
         <div className="p-3 border-b border-surface-200">
-          <h2 className="text-sm font-bold text-surface-900">
-            Cart {tableNumber ? <span className="text-primary-600 ml-1">· Table {tableNumber}</span> : ''}
-          </h2>
+          <div className="flex justify-between items-center mb-1">
+            <h2 className="text-sm font-bold text-surface-900 flex items-center gap-1">
+              Cart 
+              {tableNumber ? (
+                <>
+                  <span className="text-primary-600">· Table {tableNumber}</span>
+                  <button onClick={() => navigate('/pos/tables')} className="ml-1 text-surface-400 hover:text-primary-600 transition-colors" title="Back to Floor Plan">
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M3 14h18m-9-4v8m-7 0h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                    </svg>
+                  </button>
+                </>
+              ) : ''}
+            </h2>
+            {tableNumber && (
+              <button
+                onClick={handleCancelOrder}
+                className="text-xs font-bold px-2 py-1 bg-danger-50 text-danger-600 rounded hover:bg-danger-100 transition-colors"
+              >
+                Free Table
+              </button>
+            )}
+          </div>
           {customer && (
             <p className="text-xs text-surface-500 mt-0.5">Customer: {customer.name}</p>
           )}
@@ -326,12 +375,11 @@ export default function OrderPage() {
               <svg className="w-12 h-12 mb-2 opacity-40" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 100 4 2 2 0 000-4z" />
               </svg>
-              <p className="text-sm">Cart is empty</p>
-              <p className="text-xs mt-1">Click products to add</p>
+              <p className="text-sm font-medium">Cart is empty</p>
             </div>
           ) : (
             totals.items.map((item) => (
-              <div key={item.productId} className="bg-surface-50 rounded-xl p-3 animate-slide-up">
+              <div key={item.productId} className="bg-surface-50 rounded-xl p-3 animate-slide-up relative group border border-transparent hover:border-surface-200 transition-colors">
                 <div className="flex items-start justify-between mb-2">
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-semibold text-surface-800 truncate">{item.name}</p>
@@ -371,7 +419,9 @@ export default function OrderPage() {
               </div>
             ))
           )}
-          {/* Order-level discounts */}
+        </div>
+        {/* Cart Totals & Discounts */}
+        <div className="flex-shrink-0 bg-surface-50 border-t border-surface-200 p-3 space-y-2">
           {totals.orderDiscount > 0 && (
             <div className="bg-success-50 rounded-xl p-3 border border-success-200">
               <div className="flex items-center justify-between">
@@ -420,8 +470,8 @@ export default function OrderPage() {
           <Button size="sm" variant="success" onClick={handleSendToKitchen}>
             Send to Kitchen
           </Button>
-          <Button size="sm" variant="secondary" onClick={() => { setEmailValue(customer?.email || ''); setEmailModalOpen(true); }}>
-            Send Receipt
+          <Button size="sm" variant="danger" onClick={handleCancelOrder}>
+            Cancel Order
           </Button>
         </div>
       </div>
@@ -503,7 +553,12 @@ export default function OrderPage() {
             size="lg"
             onClick={handleCompletePayment}
             loading={paymentLoading}
-            disabled={items.length === 0 || !selectedPayment}
+            disabled={
+              items.length === 0 || 
+              !selectedPayment || 
+              (selectedPayment === 'cash' && cashTendered !== '' && Number(cashTendered) < totals.total) ||
+              ((selectedPayment === 'card' || selectedPayment === 'upi') && !cardRef && selectedPayment === 'card')
+            }
           >
             Complete Payment
           </Button>
@@ -589,7 +644,12 @@ export default function OrderPage() {
             {completedOrder?.items?.map((item, i) => (
               <div key={i} className="flex justify-between text-sm">
                 <span className="text-surface-700">{item.name} ×{item.quantity}</span>
-                <span className="text-surface-800">{formatCurrency(item.total)}</span>
+                <div className="text-right">
+                  <span className="text-surface-800 block">{formatCurrency(item.total)}</span>
+                  {item.discount > 0 && (
+                    <span className="text-xs text-success-600 block">-{formatCurrency(item.discount)}</span>
+                  )}
+                </div>
               </div>
             ))}
           </div>

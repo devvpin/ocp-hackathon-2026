@@ -272,4 +272,116 @@ router.delete('/:id', requireAuth, requireRole('admin'), validate(idParamSchema,
   }
 });
 
+const couponBaseSchema = z.object({
+  code: z.string().trim().min(1, 'Code is required.').toUpperCase(),
+  discountType: z.enum(['percentage', 'fixed']),
+  discountValue: z.coerce.number().positive('Discount value must be greater than zero.'),
+  isActive: z.boolean().optional(),
+});
+
+function serializeCoupon(coupon) {
+  return {
+    id: coupon.id,
+    code: coupon.code,
+    discountType: coupon.discountType,
+    discountValue: Number(coupon.discountValue),
+    isActive: coupon.isActive,
+  };
+}
+
+router.get('/coupons', requireAuth, requireRole('admin'), async (req, res, next) => {
+  try {
+    const pagination = parsePagination(req.query);
+    const [coupons, total] = await Promise.all([
+      prisma.coupon.findMany({
+        skip: pagination.skip,
+        take: pagination.limit,
+        orderBy: { code: 'asc' },
+      }),
+      prisma.coupon.count(),
+    ]);
+
+    return sendList(res, coupons.map(serializeCoupon), buildMeta(pagination, total));
+  } catch (err) {
+    return next(err);
+  }
+});
+
+router.post('/coupons', requireAuth, requireRole('admin'), validate(couponBaseSchema), async (req, res, next) => {
+  try {
+    const { code, discountType, discountValue, isActive } = req.validated.body;
+    
+    // Check for existing coupon
+    const existing = await prisma.coupon.findUnique({ where: { code } });
+    if (existing) {
+      return res.status(400).json({ success: false, error: { message: 'Coupon code already exists.' } });
+    }
+
+    const coupon = await prisma.coupon.create({
+      data: {
+        code,
+        discountType,
+        discountValue,
+        isActive: isActive ?? true,
+      },
+    });
+
+    return sendSuccess(res, 201, serializeCoupon(coupon));
+  } catch (err) {
+    return next(err);
+  }
+});
+
+router.patch(
+  '/coupons/:id',
+  requireAuth,
+  requireRole('admin'),
+  validate(idParamSchema, 'params'),
+  validate(couponBaseSchema.partial()),
+  async (req, res, next) => {
+    try {
+      if (req.validated.body.code) {
+        const existing = await prisma.coupon.findUnique({ where: { code: req.validated.body.code } });
+        if (existing && existing.id !== req.validated.params.id) {
+          return res.status(400).json({ success: false, error: { message: 'Coupon code already exists.' } });
+        }
+      }
+
+      const coupon = await prisma.coupon.update({
+        where: { id: req.validated.params.id },
+        data: req.validated.body,
+      });
+
+      return sendSuccess(res, 200, serializeCoupon(coupon));
+    } catch (err) {
+      return next(err);
+    }
+  }
+);
+
+router.delete('/coupons/:id', requireAuth, requireRole('admin'), validate(idParamSchema, 'params'), async (req, res, next) => {
+  try {
+    await prisma.coupon.delete({ where: { id: req.validated.params.id } });
+    return sendSuccess(res, 200, { deleted: true });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+router.get('/coupons/validate/:code', requireAuth, requireRole('admin', 'employee'), async (req, res, next) => {
+  try {
+    const coupon = await prisma.coupon.findUnique({
+      where: { code: req.params.code.trim().toUpperCase() },
+    });
+
+    if (!coupon || !coupon.isActive) {
+      return res.status(400).json({ success: false, error: { message: 'Invalid or inactive coupon code.' } });
+    }
+
+    return sendSuccess(res, 200, serializeCoupon(coupon));
+  } catch (err) {
+    return next(err);
+  }
+});
+
 module.exports = router;

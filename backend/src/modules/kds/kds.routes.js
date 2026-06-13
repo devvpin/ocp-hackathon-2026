@@ -57,24 +57,50 @@ function groupItems(items) {
     const order = item.order;
     if (!grouped.has(order.id)) {
       grouped.set(order.id, {
-        orderId: order.id,
-        orderNumber: order.orderNumber,
+        id: order.id,
+        orderNumber: String(order.orderNumber),
         tableId: order.tableId,
         createdAt: order.createdAt,
+        stage: item.kdsStage,
         items: [],
       });
     }
 
-    grouped.get(order.id).items.push(serializeKdsItem(item));
+    grouped.get(order.id).items.push({
+      id: item.id,
+      productId: item.productId,
+      name: item.productName,
+      quantity: item.quantity,
+      completed: item.kdsItemDone,
+      category: item.product?.category
+        ? {
+            id: item.product.category.id,
+            name: item.product.category.name,
+            color: item.product.category.color,
+          }
+        : null,
+    });
   }
 
-  return [...grouped.values()];
+  const result = [...grouped.values()];
+  for (const order of result) {
+    const stageValues = { to_cook: 0, preparing: 1, completed: 2 };
+    // Find the minimum stage of all items
+    const minStage = Object.keys(stageValues).reduce((min, stage) => {
+      const hasStage = items.some(i => i.orderId === order.id && i.kdsStage === stage);
+      if (hasStage && stageValues[stage] < stageValues[min]) return stage;
+      return min;
+    }, 'completed');
+    order.stage = minStage;
+  }
+
+  return result;
 }
 
 router.get('/orders', async (req, res, next) => {
   try {
     const where = {
-      order: { status: 'draft' },
+      order: { status: { in: ['draft', 'paid'] } },
       product: { showOnKds: true },
     };
 

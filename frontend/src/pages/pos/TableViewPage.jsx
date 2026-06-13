@@ -4,6 +4,8 @@ import tablesApi from '../../api/tables';
 import { useCart } from '../../context/CartContext';
 import { useToast } from '../../context/ToastContext';
 import Skeleton from '../../components/Skeleton';
+import Modal from '../../components/Modal';
+import Button from '../../components/Button';
 export default function TableViewPage() {
   const navigate = useNavigate();
   const { setTable } = useCart();
@@ -32,9 +34,25 @@ export default function TableViewPage() {
     const totalSeats = floorTables.reduce((sum, t) => sum + (t.seats || 0), 0);
     return { total, occupied, available, totalSeats };
   }, [floorTables]);
+  const [seatModal, setSeatModal] = useState(false);
+  const [selectedTable, setSelectedTable] = useState(null);
+  const [guests, setGuests] = useState(1);
+
   const handleSelectTable = (table) => {
-    setTable(table.id, table.number);
-    navigate(`/pos/order/${table.id}`);
+    if (table.status === 'occupied') {
+      setTable(table.id, table.number);
+      navigate(`/pos/order/${table.id}${table.orderId ? `?orderId=${table.orderId}` : ''}`);
+    } else {
+      setSelectedTable(table);
+      setGuests(table.seats || 1);
+      setSeatModal(true);
+    }
+  };
+
+  const confirmSeatGuests = () => {
+    if (!selectedTable) return;
+    setTable(selectedTable.id, selectedTable.number);
+    navigate(`/pos/order/${selectedTable.id}`);
   };
   if (loading) {
     return (
@@ -148,9 +166,16 @@ export default function TableViewPage() {
 
             {/* Status badge */}
             {table.status === 'occupied' ? (
-              <span className="px-2.5 py-0.5 bg-warning-500 text-white text-[10px] rounded-full font-bold uppercase tracking-wider">
-                Occupied
-              </span>
+              <div className="flex flex-col items-center gap-1">
+                <span className="px-2.5 py-0.5 bg-warning-500 text-white text-[10px] rounded-full font-bold uppercase tracking-wider">
+                  Occupied
+                </span>
+                {table.customerName && (
+                  <span className="text-[10px] font-bold text-warning-800 truncate max-w-full px-1">
+                    {table.customerName}
+                  </span>
+                )}
+              </div>
             ) : (
               <span className="px-2.5 py-0.5 bg-success-100 text-success-700 text-[10px] rounded-full font-bold uppercase tracking-wider">
                 Available
@@ -167,6 +192,29 @@ export default function TableViewPage() {
           <p className="text-lg font-medium">No tables on this floor</p>
         </div>
       )}
+
+      {/* Seat Guests Modal */}
+      <Modal isOpen={seatModal} onClose={() => setSeatModal(false)} title="Seat Guests" size="sm">
+        <div className="space-y-4">
+          <div className="text-center text-surface-500 text-sm mb-4">
+            Table {selectedTable?.number} has a default capacity of {selectedTable?.seats} seats.
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-surface-700 mb-1">Number of Guests</label>
+            <input 
+              type="number" 
+              min="1"
+              value={guests} 
+              onChange={(e) => setGuests(e.target.value)} 
+              className="w-full px-4 py-3 rounded-xl border border-surface-200 bg-surface-50 text-center text-lg font-bold focus:outline-none focus:ring-2 focus:ring-primary-500" 
+            />
+          </div>
+          <div className="flex justify-end gap-3 mt-6">
+            <Button variant="ghost" onClick={() => setSeatModal(false)}>Cancel</Button>
+            <Button onClick={confirmSeatGuests} className="w-full">Seat & Order</Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }

@@ -64,12 +64,16 @@ router.get('/:id/status', requireAuth, validate(idParamSchema, 'params'), async 
         status: 'draft',
       },
       orderBy: { createdAt: 'desc' },
-      select: { id: true },
+      select: { 
+        id: true,
+        customer: { select: { name: true } }
+      },
     });
 
     return sendSuccess(res, 200, {
       occupied: Boolean(activeOrder),
       orderId: activeOrder?.id ?? null,
+      customerName: activeOrder?.customer?.name ?? null,
     });
   } catch (err) {
     return next(err);

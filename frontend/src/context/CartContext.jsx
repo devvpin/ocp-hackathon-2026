@@ -1,6 +1,7 @@
 import { createContext, useContext, useReducer, useCallback, useEffect, useState } from 'react';
 import { computeCartTotals } from '../utils/discounts';
 import promotionsApi from '../api/promotions';
+import { useAuth } from './AuthContext';
 
 const CartContext = createContext(null);
 
@@ -103,9 +104,19 @@ export function CartProvider({ children }) {
     total: 0,
   });
 
+  const { user } = useAuth();
+
   useEffect(() => {
-    promotionsApi.getPromotions().then((res) => setPromotions(res.data)).catch(() => {});
+    promotionsApi.getPromotions().then((res) => {
+      setPromotions(res.data.filter((p) => p.isActive));
+    }).catch(() => {});
   }, []);
+
+  useEffect(() => {
+    if (!user) {
+      dispatch({ type: 'CLEAR_CART' });
+    }
+  }, [user]);
 
   useEffect(() => {
     const computed = computeCartTotals(state.items, promotions, state.coupon);
@@ -119,7 +130,7 @@ export function CartProvider({ children }) {
         productId: product.id,
         name: product.name,
         price: product.price,
-        tax: product.tax || 0,
+        tax: product.taxPercent || 0,
         categoryId: product.categoryId,
       },
     });
@@ -157,6 +168,10 @@ export function CartProvider({ children }) {
     dispatch({ type: 'CLEAR_CART' });
   }, []);
 
+  const setOrderId = useCallback((id) => {
+    dispatch({ type: 'SET_ORDER_ID', payload: id });
+  }, []);
+
   return (
     <CartContext.Provider
       value={{
@@ -167,6 +182,7 @@ export function CartProvider({ children }) {
         removeItem,
         updateQuantity,
         setTable,
+        setOrderId,
         setCustomer,
         setCoupon,
         removeCoupon,

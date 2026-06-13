@@ -20,56 +20,56 @@ export default function BackendLayout() {
   return (
     <div className="min-h-screen bg-surface-50 flex">
       {/* Sidebar */}
-      <aside className="w-64 bg-white border-r border-surface-200 flex flex-col flex-shrink-0 sticky top-0 h-screen">
-        <div className="p-5 border-b border-surface-200">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-primary-600 rounded-xl flex items-center justify-center">
-              <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 100 4 2 2 0 000-4z" />
-              </svg>
-            </div>
-            <div>
-              <h1 className="text-base font-bold text-surface-900">Odoo Cafe</h1>
-              <p className="text-xs text-surface-500">Admin Panel</p>
-            </div>
+      <aside className="w-64 bg-surface-900 text-white border-r border-surface-800 flex flex-col flex-shrink-0 sticky top-0 h-screen shadow-2xl">
+        <div className="p-6 border-b border-surface-800/60 flex items-center gap-3 relative overflow-hidden">
+          {/* Subtle gradient background effect */}
+          <div className="absolute inset-0 bg-gradient-to-br from-primary-500/10 to-transparent pointer-events-none" />
+          <div className="relative w-10 h-10 bg-gradient-to-br from-primary-500 to-primary-600 rounded-xl flex items-center justify-center shadow-lg shadow-primary-500/20">
+            <svg className="w-6 h-6 text-white drop-shadow-sm" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 100 4 2 2 0 000-4z" />
+            </svg>
+          </div>
+          <div className="relative">
+            <h1 className="text-lg font-extrabold tracking-tight text-white">Odoo Cafe</h1>
+            <p className="text-[11px] font-medium text-surface-400 uppercase tracking-widest">Admin Panel</p>
           </div>
         </div>
-        <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
+        <nav className="flex-1 p-4 space-y-1.5 overflow-y-auto hide-scrollbar">
           {navItems.map((item) => (
             <NavLink
               key={item.to}
               to={item.to}
               className={({ isActive }) =>
-                `flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 ${
+                `flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-semibold transition-all duration-300 group ${
                   isActive
-                    ? 'bg-primary-50 text-primary-700 shadow-sm'
-                    : 'text-surface-600 hover:bg-surface-100 hover:text-surface-800'
+                    ? 'bg-gradient-to-r from-primary-500 to-primary-600 text-white shadow-lg shadow-primary-500/25'
+                    : 'text-surface-400 hover:bg-surface-800/80 hover:text-white'
                 }`
               }
             >
-              <svg className="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d={item.icon} />
+              <svg className={`w-5 h-5 flex-shrink-0 transition-transform duration-300 group-hover:scale-110`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={item.icon} />
               </svg>
-              <span className="truncate">{item.label}</span>
+              <span className="truncate tracking-wide">{item.label}</span>
             </NavLink>
           ))}
         </nav>
-        <div className="p-3 border-t border-surface-200">
-          <div className="flex items-center gap-3 px-3 py-2 mb-2">
-            <div className="w-8 h-8 bg-primary-100 rounded-full flex items-center justify-center">
-              <span className="text-xs font-bold text-primary-700">{user?.name?.charAt(0) || 'U'}</span>
+        <div className="p-4 border-t border-surface-800/60 bg-surface-900/50">
+          <div className="flex items-center gap-3 px-2 py-2 mb-3 bg-surface-800/50 rounded-xl">
+            <div className="w-9 h-9 bg-surface-700 rounded-full flex items-center justify-center border border-surface-600">
+              <span className="text-xs font-bold text-white">{user?.name?.charAt(0) || 'U'}</span>
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-surface-800 truncate">{user?.name || 'Admin'}</p>
-              <p className="text-xs text-surface-500 truncate">{user?.email}</p>
+              <p className="text-sm font-bold text-white truncate">{user?.name || 'Admin'}</p>
+              <p className="text-xs text-surface-400 truncate">{user?.email}</p>
             </div>
           </div>
           <button
             onClick={handleLogout}
-            className="flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-sm font-medium text-danger-600 hover:bg-danger-50 transition-all"
+            className="flex items-center justify-center gap-2 w-full px-4 py-2.5 rounded-xl text-sm font-bold text-danger-400 hover:bg-danger-500/10 hover:text-danger-300 transition-all border border-transparent hover:border-danger-500/20 group"
           >
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+            <svg className="w-5 h-5 group-hover:-translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
             </svg>
             Log Out
           </button>

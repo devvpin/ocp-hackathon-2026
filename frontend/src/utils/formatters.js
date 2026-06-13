@@ -1,10 +1,13 @@
 /**
  * Currency formatter
  */
+const CURRENCY = import.meta.env.VITE_CURRENCY || 'INR';
+const LOCALE = import.meta.env.VITE_CURRENCY_LOCALE || 'en-IN';
+
 export function formatCurrency(amount) {
-  return new Intl.NumberFormat('en-IN', {
+  return new Intl.NumberFormat(LOCALE, {
     style: 'currency',
-    currency: 'INR',
+    currency: CURRENCY,
     minimumFractionDigits: 2,
   }).format(amount || 0);
 }
