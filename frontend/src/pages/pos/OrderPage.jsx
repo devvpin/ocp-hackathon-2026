@@ -14,9 +14,10 @@ import Badge from '../../components/Badge';
 import Skeleton from '../../components/Skeleton';
 import Logo from '../../components/Logo';
 import { CAFE_NAME } from '../../config/brand';
+import ConfirmDialog from '../../components/ConfirmDialog';
 export default function OrderPage() {
   const { tableId } = useParams();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const { success, error: showError } = useToast();
   const {
@@ -28,6 +29,7 @@ export default function OrderPage() {
   const [categories, setCategories] = useState([]);
   const [paymentMethods, setPaymentMethods] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [confirmFreeModal, setConfirmFreeModal] = useState(false);
   const [activeCategory, setActiveCategory] = useState('all');
   const [productSearch, setProductSearch] = useState('');
   // Payment state
@@ -88,6 +90,43 @@ export default function OrderPage() {
       }).catch(() => {});
     }
   }, [tableId]);
+
+  // Auto-save draft order when cart changes
+  useEffect(() => {
+    if (!tableId || items.length === 0) return;
+
+    const saveDraft = async () => {
+      try {
+        const editOrderId = searchParams.get('orderId') || orderId;
+        const createPayload = {
+          tableId: tableId || null,
+          customerId: customer?.id || null,
+          items: items.map((i) => ({
+            productId: i.productId,
+            quantity: i.quantity,
+          })),
+        };
+        if (coupon?.code) createPayload.couponCode = coupon.code;
+
+        if (editOrderId) {
+          await ordersApi.update(editOrderId, createPayload);
+        } else {
+          const res = await ordersApi.create(createPayload);
+          setOrderId(res.data.id);
+          setSearchParams({ orderId: res.data.id });
+        }
+      } catch (err) {
+        console.error('Failed to auto-save draft order:', err);
+      }
+    };
+
+    // Debounce auto-save to avoid spamming the backend
+    const timer = setTimeout(() => {
+      saveDraft();
+    }, 1000);
+
+    return () => clearTimeout(timer);
+  }, [items, customer, coupon, tableId, orderId, searchParams, setSearchParams]);
   // Listen for global search from POS nav
   useEffect(() => {
     const handler = (e) => setProductSearch(e.detail || '');
@@ -150,15 +189,19 @@ export default function OrderPage() {
       navigate('/pos/tables');
       return;
     }
-    if (window.confirm('Are you sure you want to cancel this order? This will free the table.')) {
-      try {
-        await ordersApi.cancel(editOrderId);
-        success('Order cancelled and table freed');
-        clearCart();
-        navigate('/pos/tables');
-      } catch (err) {
-        showError('Failed to cancel order');
-      }
+    setConfirmFreeModal(true);
+  };
+  const handleConfirmFreeTable = async () => {
+    const editOrderId = searchParams.get('orderId') || orderId;
+    try {
+      await ordersApi.cancel(editOrderId);
+      success('Order cancelled and table freed');
+      clearCart();
+      setConfirmFreeModal(false);
+      navigate('/pos/tables');
+    } catch (err) {
+      const msg = err?.response?.data?.error?.message || 'Failed to cancel order';
+      showError(msg);
     }
   };
   const handleCompletePayment = async () => {
@@ -214,6 +257,7 @@ export default function OrderPage() {
       });
       setReceiptModalOpen(true);
       success('Payment completed!');
+      clearCart();
     } catch (err) {
       const msg = err?.response?.data?.error?.message || 'Payment failed';
       showError(msg);
@@ -669,6 +713,14 @@ export default function OrderPage() {
           <Button onClick={handleNewOrder} className="flex-1">New Order</Button>
         </div>
       </Modal>
+      <ConfirmDialog
+        isOpen={confirmFreeModal}
+        onClose={() => setConfirmFreeModal(false)}
+        onConfirm={handleConfirmFreeTable}
+        title="Free Table"
+        message="Are you sure you want to cancel this order? This will free the table."
+        confirmText="Free Table"
+      />
     </div>
   );
 }

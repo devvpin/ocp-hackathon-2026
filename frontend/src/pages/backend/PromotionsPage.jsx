@@ -132,9 +132,9 @@ export default function PromotionsPage() {
   ];
   const promoColumns = [
     { key: 'appliedTo', label: 'Applied To', render: (v) => v === 'product' ? 'Product' : 'Order' },
-    { key: 'productName', label: 'Product', render: (v, row) => row.appliedTo === 'product' ? (v || '—') : '—' },
-    { key: 'minimumQuantity', label: 'Min Qty', render: (v, row) => row.appliedTo === 'product' ? (v || '—') : '—' },
-    { key: 'minimumOrderAmount', label: 'Min Order', render: (v, row) => row.appliedTo === 'order' ? formatCurrency(v) : '—' },
+    { key: 'product', label: 'Product', render: (_, row) => row.appliedTo === 'product' ? (row.product?.name || '—') : '—' },
+    { key: 'minQuantity', label: 'Min Qty', render: (_, row) => row.appliedTo === 'product' ? (row.minQuantity || '—') : '—' },
+    { key: 'minOrderAmount', label: 'Min Order', render: (_, row) => row.appliedTo === 'order' ? formatCurrency(row.minOrderAmount) : '—' },
     { key: 'discountType', label: 'Type', render: (v) => v === 'percentage' ? 'Percentage' : 'Fixed' },
     { key: 'discountValue', label: 'Value', render: (v, row) => row.discountType === 'percentage' ? `${v}%` : formatCurrency(v) },
     {

@@ -1,10 +1,11 @@
-import { useState, useEffect, useReducer } from 'react';
+import { useState, useEffect, useReducer, useCallback } from 'react';
 import kdsApi from '../../api/kds';
 import { useToast } from '../../context/ToastContext';
 import { useAuth } from '../../context/AuthContext';
 import SearchBar from '../../components/SearchBar';
 import Logo from '../../components/Logo';
 import { CAFE_NAME } from '../../config/brand';
+import useSocket from '../../hooks/useSocket';
 
 const stages = [
   { key: 'to_cook', label: 'TO COOK', headerClass: 'bg-cafe-espresso text-cafe-foam', borderColor: '#713105' },
@@ -15,7 +16,7 @@ const stages = [
 function ordersReducer(state, action) {
   switch (action.type) {
     case 'SET_ORDERS':
-      return action.payload;
+      return action.payload || [];
     case 'ADVANCE_STAGE': {
       const stageKeys = stages.map((s) => s.key);
       return state.map((o) => {
@@ -60,18 +61,25 @@ export default function KDSPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
 
+  const fetchOrders = useCallback(async () => {
+    try {
+      const res = await kdsApi.getOrders();
+      dispatch({ type: 'SET_ORDERS', payload: res });
+    } catch { showError('Failed to load KDS orders'); }
+    setLoading(false);
+  }, [showError]);
+
+  useSocket(null, (msg) => {
+    if (msg.event === 'kds:order_received' || msg.event === 'kds:order_updated') {
+      fetchOrders();
+    }
+  });
+
   useEffect(() => {
-    const fetchOrders = async () => {
-      try {
-        const res = await kdsApi.getOrders();
-        dispatch({ type: 'SET_ORDERS', payload: res.data });
-      } catch { showError('Failed to load KDS orders'); }
-      setLoading(false);
-    };
     fetchOrders();
     const interval = setInterval(fetchOrders, 5000);
     return () => clearInterval(interval);
-  }, [showError]);
+  }, [fetchOrders]);
 
   const handleAdvanceStage = async (orderId, currentStage) => {
     if (!isAdmin) {
@@ -84,9 +92,13 @@ export default function KDSPage() {
     const newStage = stageKeys[currentIdx + 1];
 
     try {
-      dispatch({ type: 'ADVANCE_STAGE', payload: orderId });
       await kdsApi.advanceStage(orderId, newStage);
-    } catch { showError('Failed to update order'); }
+      dispatch({ type: 'ADVANCE_STAGE', payload: orderId });
+    } catch (err) {
+      const msg = err?.response?.data?.error?.message || 'Failed to update order';
+      showError(msg);
+      fetchOrders();
+    }
   };
 
   const handleToggleItem = async (orderId, itemId, e) => {
@@ -95,10 +107,23 @@ export default function KDSPage() {
       showError('Employees have view-only access to KDS.');
       return;
     }
+    const order = orders.find((o) => o.id === orderId);
+    if (!order || order.stage !== 'preparing') return;
+
     try {
-      dispatch({ type: 'TOGGLE_ITEM', payload: { orderId, itemId } });
       await kdsApi.toggleItemComplete(orderId, itemId);
-    } catch { showError('Failed to update item'); }
+      dispatch({ type: 'TOGGLE_ITEM', payload: { orderId, itemId } });
+    } catch (err) {
+      const msg = err?.response?.data?.error?.message || 'Failed to update item';
+      showError(msg);
+      fetchOrders();
+    }
+  };
+
+  const handleToggleItemClick = (order, item, stageKey, e) => {
+    if (isAdmin && stageKey === 'preparing') {
+      handleToggleItem(order.id, item.id, e);
+    }
   };
 
   const filteredOrders = orders.filter((o) => {
@@ -167,19 +192,21 @@ export default function KDSPage() {
                         {order.items.map((item) => (
                           <div
                             key={item.id}
-                            onClick={(e) => isAdmin && handleToggleItem(order.id, item.id, e)}
-                            className={`flex items-center gap-2 px-2 py-1.5 rounded-cafe transition-all duration-150 min-h-[44px] ${isAdmin ? 'cursor-pointer hover:bg-cafe-foam' : ''}`}
+                            onClick={(e) => handleToggleItemClick(order, item, stage.key, e)}
+                            className={`flex items-center gap-2 px-2 py-1.5 rounded-cafe transition-all duration-150 min-h-[44px] ${isAdmin && stage.key === 'preparing' ? 'cursor-pointer hover:bg-cafe-foam' : ''}`}
                           >
-                            <div className={`w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 ${
-                              item.completed ? 'bg-status-success border-status-success' : 'border-cafe-crema'
-                            }`}>
-                              {item.completed && (
-                                <svg className="w-3 h-3 text-cafe-foam" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                                </svg>
-                              )}
-                            </div>
-                            <span className={`text-sm font-sans flex-1 ${item.completed ? 'line-through text-cafe-grounds/40' : 'text-cafe-grounds font-medium'}`}>
+                            {stage.key === 'preparing' && (
+                              <div className={`w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 ${
+                                item.completed ? 'bg-status-success border-status-success' : 'border-cafe-crema'
+                              }`}>
+                                {item.completed && (
+                                  <svg className="w-3 h-3 text-cafe-foam" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                                  </svg>
+                                )}
+                              </div>
+                            )}
+                            <span className={`text-sm font-sans flex-1 ${stage.key === 'preparing' && item.completed ? 'line-through text-cafe-grounds/40' : 'text-cafe-grounds font-medium'}`}>
                               {item.name}
                             </span>
                             <span className="text-xs font-sans text-cafe-grounds/60 font-semibold tabular-nums">×{item.quantity}</span>

@@ -69,6 +69,9 @@ export function applyOrderPromotions(subtotal, promotions) {
  */
 export function applyCouponDiscount(subtotal, coupon) {
   if (!coupon) return 0;
+  if (coupon.minOrderAmount !== undefined && coupon.minOrderAmount !== null && subtotal < Number(coupon.minOrderAmount)) {
+    return 0;
+  }
 
   let discount = 0;
   if (coupon.discountType === 'percentage') {

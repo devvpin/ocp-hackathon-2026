@@ -9,6 +9,7 @@ const validate = require('../../middleware/validate');
 const { AppError } = require('../../middleware/errorHandler');
 const { sendSuccess } = require('../../utils/response');
 const { broadcast } = require('../../websocket');
+const { updateTableStatus } = require('../../utils/tableStatus');
 
 const router = Router();
 
@@ -131,10 +132,21 @@ router.patch('/orders/:orderId/stage', validate(orderIdParamSchema, 'params'), v
   try {
     const orderId = req.validated.params.orderId;
     const newStage = req.validated.body.stage;
-    const items = await prisma.orderItem.findMany({ where: { orderId } });
+    const items = await prisma.orderItem.findMany({
+      where: { orderId },
+      include: { product: true }
+    });
 
     if (items.length === 0) {
       throw new AppError('NOT_FOUND', 'Order has no kitchen items.');
+    }
+
+    if (newStage === 'completed') {
+      const kdsItems = items.filter(item => item.product.showOnKds);
+      const allDone = kdsItems.every(item => item.kdsItemDone);
+      if (!allDone) {
+        throw new AppError('BAD_REQUEST', 'Cannot complete order in KDS. All items must be marked as done first.');
+      }
     }
 
     const minCurrentStage = Math.min(...items.map((item) => stageOrder[item.kdsStage]));
@@ -151,6 +163,12 @@ router.patch('/orders/:orderId/stage', validate(orderIdParamSchema, 'params'), v
     });
 
     broadcast('kds:stage_changed', { orderId, newStage });
+
+    const order = await prisma.order.findUnique({ where: { id: orderId } });
+    if (order && order.tableId) {
+      await updateTableStatus(order.tableId);
+    }
+
     return sendSuccess(res, 200, { orderId, newStage });
   } catch (err) {
     return next(err);
@@ -172,6 +190,31 @@ router.patch('/items/:itemId/done', validate(itemIdParamSchema, 'params'), async
       orderId: updated.orderId,
       done: updated.kdsItemDone,
     });
+
+    // Fetch all KDS-visible items for this order (fresh from DB after update)
+    const allItems = await prisma.orderItem.findMany({
+      where: {
+        orderId: updated.orderId,
+        product: { showOnKds: true },
+      },
+    });
+
+    const allDone = allItems.length > 0 && allItems.every(i => i.kdsItemDone);
+    const anyPreparing = allItems.some(i => i.kdsStage === 'preparing');
+
+    if (allDone && anyPreparing) {
+      // Auto-advance the whole order to 'completed' when every item is ticked
+      await prisma.orderItem.updateMany({
+        where: { orderId: updated.orderId },
+        data: { kdsStage: 'completed', kdsItemDone: true },
+      });
+      broadcast('kds:stage_changed', { orderId: updated.orderId, newStage: 'completed' });
+
+      const order = await prisma.order.findUnique({ where: { id: updated.orderId } });
+      if (order && order.tableId) {
+        await updateTableStatus(order.tableId);
+      }
+    }
 
     return sendSuccess(res, 200, serializeKdsItem(updated));
   } catch (err) {

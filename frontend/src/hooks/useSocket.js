@@ -37,8 +37,7 @@ export default function useSocket(url, onMessage) {
   }, [url, onMessage]);
 
   useEffect(() => {
-    // Don't connect in mock mode since there's no WS server
-    // connect();
+    connect();
 
     return () => {
       if (reconnectRef.current) clearTimeout(reconnectRef.current);

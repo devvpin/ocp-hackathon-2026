@@ -58,7 +58,7 @@ router.get('/:id/status', requireAuth, validate(idParamSchema, 'params'), async 
       throw new AppError('NOT_FOUND', 'Table not found.');
     }
 
-    const activeOrder = await prisma.order.findFirst({
+    let activeOrder = await prisma.order.findFirst({
       where: {
         tableId: id,
         status: 'draft',
@@ -66,13 +66,38 @@ router.get('/:id/status', requireAuth, validate(idParamSchema, 'params'), async 
       orderBy: { createdAt: 'desc' },
       select: { 
         id: true,
+        status: true,
         customer: { select: { name: true } }
       },
     });
 
+    if (!activeOrder) {
+      const activePaidOrders = await prisma.order.findMany({
+        where: { tableId: id, status: 'paid' },
+        include: { items: { include: { product: true } }, customer: true },
+        orderBy: { createdAt: 'desc' },
+      });
+
+      for (const order of activePaidOrders) {
+        const kdsItems = order.items.filter((item) => item.product.showOnKds);
+        if (kdsItems.length > 0) {
+          const hasUncompletedItems = kdsItems.some((item) => item.kdsStage !== 'completed');
+          if (hasUncompletedItems) {
+            activeOrder = {
+              id: order.id,
+              status: order.status,
+              customer: order.customer ? { name: order.customer.name } : null,
+            };
+            break;
+          }
+        }
+      }
+    }
+
     return sendSuccess(res, 200, {
       occupied: Boolean(activeOrder),
       orderId: activeOrder?.id ?? null,
+      orderStatus: activeOrder?.status ?? null,
       customerName: activeOrder?.customer?.name ?? null,
     });
   } catch (err) {

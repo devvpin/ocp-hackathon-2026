@@ -1,6 +1,27 @@
 import api from './axios';
 import { data, ok } from './envelope';
 
+function toApiPayload(payload) {
+  let name = payload.name;
+  if (!name) {
+    if (payload.appliedTo === 'product') {
+      name = `Promo: ${payload.productName || 'Product'}`;
+    } else {
+      name = `Promo: Order over ${payload.minimumOrderAmount || 0}`;
+    }
+  }
+  return {
+    name,
+    appliedTo: payload.appliedTo,
+    productId: payload.productId || null,
+    minQuantity: payload.minimumQuantity ? Number(payload.minimumQuantity) : null,
+    minOrderAmount: payload.minimumOrderAmount ? Number(payload.minimumOrderAmount) : null,
+    discountType: payload.discountType,
+    discountValue: Number(payload.discountValue),
+    isActive: payload.isActive ?? true,
+  };
+}
+
 const promotionsApi = {
   async getCoupons(params) {
     return { data: data(await api.get('/promotions/coupons', { params })) };
@@ -27,11 +48,11 @@ const promotionsApi = {
   },
 
   async createPromotion(payload) {
-    return { data: data(await api.post('/promotions', payload)) };
+    return { data: data(await api.post('/promotions', toApiPayload(payload))) };
   },
 
   async updatePromotion(id, payload) {
-    return { data: data(await api.patch(`/promotions/${id}`, payload)) };
+    return { data: data(await api.patch(`/promotions/${id}`, toApiPayload(payload))) };
   },
 
   async deletePromotion(id) {

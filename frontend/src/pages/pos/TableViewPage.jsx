@@ -6,6 +6,8 @@ import { useToast } from '../../context/ToastContext';
 import Skeleton from '../../components/Skeleton';
 import Modal from '../../components/Modal';
 import Button from '../../components/Button';
+import useSocket from '../../hooks/useSocket';
+
 export default function TableViewPage() {
   const navigate = useNavigate();
   const { setTable } = useCart();
@@ -14,18 +16,41 @@ export default function TableViewPage() {
   const [tables, setTables] = useState([]);
   const [activeFloor, setActiveFloor] = useState(null);
   const [loading, setLoading] = useState(true);
+
+  useSocket(null, (msg) => {
+    if (msg.event === 'table:status_changed') {
+      const { tableId, occupied, orderId, orderStatus } = msg.payload;
+      setTables((prev) =>
+        prev.map((t) => {
+          if (t.id === tableId) {
+            return {
+              ...t,
+              status: occupied ? 'occupied' : 'available',
+              orderId: occupied ? orderId : null,
+              orderStatus: occupied ? orderStatus : null,
+            };
+          }
+          return t;
+        })
+      );
+    }
+  });
+
   useEffect(() => {
     const fetchData = async () => {
       try {
         const [fRes, tRes] = await Promise.all([tablesApi.getFloors(), tablesApi.getAllTables()]);
         setFloors(fRes.data);
         setTables(tRes.data);
-        if (fRes.data.length) setActiveFloor(fRes.data[0].id);
+        if (fRes.data.length && !activeFloor) setActiveFloor(fRes.data[0].id);
       } catch { showError('Failed to load tables'); }
       setLoading(false);
     };
     fetchData();
-  }, []);
+    // Periodic refresh as fallback when WebSocket events are missed
+    const interval = setInterval(fetchData, 10000);
+    return () => clearInterval(interval);
+  }, [activeFloor]);
   const floorTables = tables.filter((t) => t.floorId === activeFloor && t.active);
   const stats = useMemo(() => {
     const total = floorTables.length;
@@ -40,6 +65,11 @@ export default function TableViewPage() {
 
   const handleSelectTable = (table) => {
     if (table.status === 'occupied') {
+      // If the active order is already paid (awaiting kitchen completion), don't navigate
+      if (table.orderStatus === 'paid') {
+        showError('This order is already paid and awaiting kitchen completion. Free the table from the KDS once all items are completed.');
+        return;
+      }
       setTable(table.id, table.number);
       navigate(`/pos/order/${table.id}${table.orderId ? `?orderId=${table.orderId}` : ''}`);
     } else {
@@ -124,61 +154,79 @@ export default function TableViewPage() {
 
       {/* Table Grid - Floor Map Style */}
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-        {floorTables.map((table) => (
-          <button
-            key={table.id}
-            onClick={() => handleSelectTable(table)}
-            className={`relative p-5 rounded-cafe border-2 transition-all duration-150 hover:shadow-cafe hover:scale-[1.02] active:scale-[0.98] min-h-[140px] flex flex-col items-center justify-center group ${
-              table.status === 'occupied'
-                ? 'border-cafe-espresso bg-cafe-roast text-cafe-foam shadow-cafe'
-                : 'border-cafe-crema/50 bg-white text-cafe-grounds hover:border-cafe-roast'
-            }`}
-          >
-            {/* Status indicator */}
-            {table.status === 'occupied' ? (
-              <div className="absolute top-2.5 right-2.5 flex items-center gap-1">
-                <div className="w-2 h-2 rounded-full bg-cafe-crema animate-pulse" />
-              </div>
-            ) : null}
+        {floorTables.map((table) => {
+          const isAwaitingKitchen = table.status === 'occupied' && table.orderStatus === 'paid';
+          const isOccupiedDraft = table.status === 'occupied' && table.orderStatus !== 'paid';
+          return (
+            <button
+              key={table.id}
+              onClick={() => handleSelectTable(table)}
+              className={`relative p-5 rounded-cafe border-2 transition-all duration-150 hover:shadow-cafe hover:scale-[1.02] active:scale-[0.98] min-h-[140px] flex flex-col items-center justify-center group ${
+                isAwaitingKitchen
+                  ? 'border-amber-400 bg-amber-50 text-amber-900 shadow-cafe cursor-not-allowed'
+                  : isOccupiedDraft
+                  ? 'border-cafe-espresso bg-cafe-roast text-cafe-foam shadow-cafe'
+                  : 'border-cafe-crema/50 bg-white text-cafe-grounds hover:border-cafe-roast'
+              }`}
+            >
+              {/* Status indicator dot */}
+              {table.status === 'occupied' && (
+                <div className="absolute top-2.5 right-2.5 flex items-center gap-1">
+                  <div className={`w-2 h-2 rounded-full animate-pulse ${isAwaitingKitchen ? 'bg-amber-400' : 'bg-cafe-crema'}`} />
+                </div>
+              )}
 
-            {/* Table icon */}
-            <div className={`w-12 h-12 rounded-cafe flex items-center justify-center mb-2 transition-all ${
-              table.status === 'occupied'
-                ? 'bg-cafe-espresso/40'
-                : 'bg-cafe-foam group-hover:bg-cafe-crema/30'
-            }`}>
-              <span className={`text-2xl font-display font-semibold tabular-nums ${table.status === 'occupied' ? 'text-cafe-foam' : 'text-cafe-grounds'}`}>
-                {table.number}
-              </span>
-            </div>
-
-            {/* Seat count */}
-            <div className={`flex items-center gap-1.5 text-xs mb-1.5 font-sans ${table.status === 'occupied' ? 'text-cafe-foam/80' : 'text-cafe-grounds/60'}`}>
-              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-              </svg>
-              <span className="font-medium">{table.seats} seats</span>
-            </div>
-
-            {/* Status badge */}
-            {table.status === 'occupied' ? (
-              <div className="flex flex-col items-center gap-1">
-                <span className="px-2.5 py-0.5 bg-cafe-espresso text-cafe-foam text-[10px] rounded-cafe font-sans font-medium uppercase tracking-wide">
-                  Occupied
+              {/* Table number */}
+              <div className={`w-12 h-12 rounded-cafe flex items-center justify-center mb-2 transition-all ${
+                isAwaitingKitchen
+                  ? 'bg-amber-200/60'
+                  : isOccupiedDraft
+                  ? 'bg-cafe-espresso/40'
+                  : 'bg-cafe-foam group-hover:bg-cafe-crema/30'
+              }`}>
+                <span className={`text-2xl font-display font-semibold tabular-nums ${
+                  isAwaitingKitchen ? 'text-amber-800' : isOccupiedDraft ? 'text-cafe-foam' : 'text-cafe-grounds'
+                }`}>
+                  {table.number}
                 </span>
-                {table.customerName && (
-                  <span className="text-[10px] font-sans font-medium text-cafe-foam/80 truncate max-w-full px-1">
-                    {table.customerName}
-                  </span>
-                )}
               </div>
-            ) : (
-              <span className="px-2.5 py-0.5 bg-cafe-crema/40 text-cafe-espresso text-[10px] rounded-cafe font-sans font-medium uppercase tracking-wide">
-                Available
-              </span>
-            )}
-          </button>
-        ))}
+
+              {/* Seat count */}
+              <div className={`flex items-center gap-1.5 text-xs mb-1.5 font-sans ${
+                isAwaitingKitchen ? 'text-amber-700/80' : isOccupiedDraft ? 'text-cafe-foam/80' : 'text-cafe-grounds/60'
+              }`}>
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                </svg>
+                <span className="font-medium">{table.seats} seats</span>
+              </div>
+
+              {/* Status badge */}
+              {isAwaitingKitchen ? (
+                <div className="flex flex-col items-center gap-1">
+                  <span className="px-2.5 py-0.5 bg-amber-400 text-amber-900 text-[10px] rounded-cafe font-sans font-bold uppercase tracking-wide">
+                    Awaiting Kitchen
+                  </span>
+                </div>
+              ) : isOccupiedDraft ? (
+                <div className="flex flex-col items-center gap-1">
+                  <span className="px-2.5 py-0.5 bg-cafe-espresso text-cafe-foam text-[10px] rounded-cafe font-sans font-medium uppercase tracking-wide">
+                    Occupied
+                  </span>
+                  {table.customerName && (
+                    <span className="text-[10px] font-sans font-medium text-cafe-foam/80 truncate max-w-full px-1">
+                      {table.customerName}
+                    </span>
+                  )}
+                </div>
+              ) : (
+                <span className="px-2.5 py-0.5 bg-cafe-crema/40 text-cafe-espresso text-[10px] rounded-cafe font-sans font-medium uppercase tracking-wide">
+                  Available
+                </span>
+              )}
+            </button>
+          );
+        })}
       </div>
       {floorTables.length === 0 && (
         <div className="flex flex-col items-center justify-center py-20 text-surface-400">

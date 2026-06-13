@@ -144,7 +144,7 @@ async function buildPromotionUpdateData(id, patch) {
   return patch;
 }
 
-router.get('/', requireAuth, requireRole('admin'), async (req, res, next) => {
+router.get('/', requireAuth, requireRole('admin', 'employee'), async (req, res, next) => {
   try {
     const pagination = parsePagination(req.query);
     const [promotions, total] = await Promise.all([
@@ -276,6 +276,7 @@ const couponBaseSchema = z.object({
   code: z.string().trim().min(1, 'Code is required.').toUpperCase(),
   discountType: z.enum(['percentage', 'fixed']),
   discountValue: z.coerce.number().positive('Discount value must be greater than zero.'),
+  minOrderAmount: z.coerce.number().min(0, 'Minimum order amount cannot be negative.').optional().nullable(),
   isActive: z.boolean().optional(),
 });
 
@@ -285,6 +286,7 @@ function serializeCoupon(coupon) {
     code: coupon.code,
     discountType: coupon.discountType,
     discountValue: Number(coupon.discountValue),
+    minOrderAmount: coupon.minOrderAmount ? Number(coupon.minOrderAmount) : null,
     isActive: coupon.isActive,
   };
 }
@@ -319,10 +321,8 @@ router.post('/coupons', requireAuth, requireRole('admin'), validate(couponBaseSc
 
     const coupon = await prisma.coupon.create({
       data: {
-        code,
-        discountType,
-        discountValue,
-        isActive: isActive ?? true,
+        ...req.validated.body,
+        isActive: req.validated.body.isActive ?? true,
       },
     });
 

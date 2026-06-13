@@ -19,6 +19,7 @@ const couponBaseSchema = z.object({
   code: z.string().trim().min(1, 'Code is required.').transform((value) => value.toUpperCase()),
   discountType: z.enum(['percentage', 'fixed']),
   discountValue: z.coerce.number().positive('Discount value must be greater than zero.'),
+  minOrderAmount: z.coerce.number().min(0, 'Minimum order amount cannot be negative.').optional().nullable(),
   isActive: z.boolean().optional(),
 });
 
@@ -62,6 +63,7 @@ function serializeCoupon(coupon) {
     code: coupon.code,
     discountType: coupon.discountType,
     discountValue: Number(coupon.discountValue),
+    minOrderAmount: coupon.minOrderAmount ? Number(coupon.minOrderAmount) : null,
     isActive: coupon.isActive,
   };
 }
@@ -106,6 +108,10 @@ router.post('/validate', requireAuth, requireRole('admin', 'employee'), validate
 
     if (!coupon || !coupon.isActive) {
       return sendSuccess(res, 200, { valid: false, discountAmount: 0 });
+    }
+
+    if (coupon.minOrderAmount !== null && orderSubtotal < Number(coupon.minOrderAmount)) {
+      return sendSuccess(res, 200, { valid: false, message: `Minimum order amount of ${Number(coupon.minOrderAmount)} is required.`, discountAmount: 0 });
     }
 
     return sendSuccess(res, 200, {

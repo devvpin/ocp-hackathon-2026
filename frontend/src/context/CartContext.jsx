@@ -130,7 +130,7 @@ export function CartProvider({ children }) {
         productId: product.id,
         name: product.name,
         price: product.price,
-        tax: product.taxPercent || 0,
+        tax: product.tax ?? product.taxPercent ?? 0,
         categoryId: product.categoryId,
       },
     });

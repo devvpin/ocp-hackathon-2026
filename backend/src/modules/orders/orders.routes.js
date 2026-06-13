@@ -12,6 +12,7 @@ const { sendSuccess, sendList } = require('../../utils/response');
 const { parsePagination, buildMeta } = require('../../utils/pagination');
 const { sendMail } = require('../../utils/email');
 const { broadcast } = require('../../websocket');
+const { updateTableStatus, broadcastTable } = require('../../utils/tableStatus');
 
 const router = Router();
 
@@ -188,10 +189,16 @@ async function calculateOrder(input) {
       throw new AppError('BAD_REQUEST', 'Coupon is invalid or inactive.');
     }
 
+    if (coupon.minOrderAmount !== null && subtotal < Number(coupon.minOrderAmount)) {
+      throw new AppError('BAD_REQUEST', 'Minimum order amount for coupon not met.');
+    }
+
     couponId = coupon.id;
-    discountAmount += coupon.discountType === 'percentage'
-      ? subtotal * (Number(coupon.discountValue) / 100)
+    const remainingSubtotal = Math.max(0, subtotal - discountAmount);
+    const couponDiscount = coupon.discountType === 'percentage'
+      ? remainingSubtotal * (Number(coupon.discountValue) / 100)
       : Number(coupon.discountValue);
+    discountAmount += couponDiscount;
   }
 
   discountAmount = money(Math.min(discountAmount, subtotal));
@@ -222,25 +229,6 @@ function assertOrderOwner(order, reqUser) {
   }
 }
 
-function broadcastTable(tableId, occupied, orderId = null) {
-  if (!tableId) return;
-  broadcast('table:status_changed', { tableId, occupied, orderId });
-}
-
-async function updateTableStatus(tableId) {
-  if (!tableId) return;
-  const draftOrder = await prisma.order.findFirst({
-    where: { tableId, status: 'draft' },
-    select: { id: true },
-    orderBy: { createdAt: 'desc' },
-  });
-
-  if (draftOrder) {
-    broadcastTable(tableId, true, draftOrder.id);
-  } else {
-    broadcastTable(tableId, false, null);
-  }
-}
 
 router.get('/', requireAuth, async (req, res, next) => {
   try {
@@ -406,6 +394,14 @@ router.patch('/:id/cancel', requireAuth, requireRole('admin', 'employee'), valid
   try {
     const order = await getDraftOrder(req.validated.params.id);
     assertOrderOwner(order, req.user);
+
+    const hasActiveKdsItems = order.items.some(
+      (item) => item.kdsStage === 'preparing' || item.kdsStage === 'completed'
+    );
+    if (hasActiveKdsItems) {
+      throw new AppError('BAD_REQUEST', 'Cannot cancel order or free table when items are in preparing or completed stage.');
+    }
+
     const cancelled = await prisma.order.update({
       where: { id: order.id },
       data: { status: 'cancelled' },
@@ -423,6 +419,14 @@ router.delete('/:id', requireAuth, requireRole('admin', 'employee'), validate(id
   try {
     const order = await getDraftOrder(req.validated.params.id);
     assertOrderOwner(order, req.user);
+
+    const hasActiveKdsItems = order.items.some(
+      (item) => item.kdsStage === 'preparing' || item.kdsStage === 'completed'
+    );
+    if (hasActiveKdsItems) {
+      throw new AppError('BAD_REQUEST', 'Cannot delete order or free table when items are in preparing or completed stage.');
+    }
+
     await prisma.order.delete({ where: { id: order.id } });
     await updateTableStatus(order.tableId);
     return sendSuccess(res, 200, { deleted: true });
@@ -537,5 +541,4 @@ router.post('/:id/send-receipt', requireAuth, requireRole('admin', 'employee'), 
     return next(err);
   }
 });
-
 module.exports = router;
