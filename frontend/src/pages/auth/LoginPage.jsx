@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import Button from '../../components/Button';
@@ -74,10 +74,7 @@ export default function LoginPage() {
         </Button>
       </form>
       <p className="mt-6 text-center text-sm text-surface-500">
-        Don't have an account?{' '}
-        <Link to="/auth/signup" className="text-primary-600 font-semibold hover:text-primary-700 transition-colors">
-          Sign Up
-        </Link>
+        Employees should use credentials provided by an admin.
       </p>
     </div>
   );

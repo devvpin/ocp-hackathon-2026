@@ -1,39 +1,64 @@
-import { delay, mockProducts, generateId } from './mockData';
+import api from './axios';
+import { data, ok, okList } from './envelope';
 
-let products = [...mockProducts];
+const uomToApi = {
+  'Per Piece': 'per_piece',
+  'Per Kg': 'per_kg',
+  'Per Litre': 'per_litre',
+  per_piece: 'per_piece',
+  per_kg: 'per_kg',
+  per_litre: 'per_litre',
+};
+
+const uomFromApi = {
+  per_piece: 'Per Piece',
+  per_kg: 'Per Kg',
+  per_litre: 'Per Litre',
+};
+
+function normalizeProduct(product) {
+  if (!product) return product;
+  return {
+    ...product,
+    tax: product.taxPercent ?? product.tax ?? 0,
+    uom: uomFromApi[product.unitOfMeasure] || product.uom || 'Per Piece',
+  };
+}
+
+function toApiPayload(payload) {
+  return {
+    name: payload.name,
+    categoryId: payload.categoryId,
+    price: Number(payload.price),
+    unitOfMeasure: uomToApi[payload.uom || payload.unitOfMeasure] || 'per_piece',
+    taxPercent: Number(payload.tax ?? payload.taxPercent ?? 0),
+    description: payload.description || null,
+    showOnKds: payload.showOnKds ?? true,
+  };
+}
 
 const productsApi = {
-  async getAll() {
-    await delay(300);
-    return { data: [...products] };
+  async getAll(params = {}) {
+    const res = okList(await api.get('/products', { params }));
+    return { ...res, data: res.data.map(normalizeProduct) };
   },
 
   async getById(id) {
-    await delay(200);
-    const product = products.find((p) => p.id === id);
-    if (!product) throw { response: { data: { message: 'Product not found' } } };
-    return { data: product };
+    return { data: normalizeProduct(data(await api.get(`/products/${id}`))) };
   },
 
-  async create(data) {
-    await delay(400);
-    const product = { id: generateId(), ...data };
-    products.push(product);
-    return { data: product };
+  async create(payload) {
+    const res = await api.post('/products', toApiPayload(payload));
+    return { data: normalizeProduct(data(res)) };
   },
 
-  async update(id, data) {
-    await delay(400);
-    const index = products.findIndex((p) => p.id === id);
-    if (index === -1) throw { response: { data: { message: 'Product not found' } } };
-    products[index] = { ...products[index], ...data };
-    return { data: products[index] };
+  async update(id, payload) {
+    const res = await api.patch(`/products/${id}`, toApiPayload(payload));
+    return { data: normalizeProduct(data(res)) };
   },
 
   async delete(id) {
-    await delay(300);
-    products = products.filter((p) => p.id !== id);
-    return { data: { success: true } };
+    return ok(await api.delete(`/products/${id}`));
   },
 };
 

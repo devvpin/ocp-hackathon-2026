@@ -1,67 +1,87 @@
-import { delay, mockFloors, mockTables, generateId } from './mockData';
+import api from './axios';
+import { data, ok } from './envelope';
 
-let floors = [...mockFloors];
-let tables = [...mockTables];
+function normalizeTable(table, status) {
+  return {
+    ...table,
+    number: table.tableNumber,
+    seats: table.seatCount,
+    active: table.isActive,
+    status: status?.occupied ? 'occupied' : 'available',
+    orderId: status?.orderId ?? null,
+  };
+}
+
+function normalizeFloor(floor) {
+  return {
+    ...floor,
+    tables: (floor.tables || []).map((table) => normalizeTable(table)),
+  };
+}
+
+function toTablePayload(payload) {
+  return {
+    floorId: payload.floorId,
+    tableNumber: Number(payload.number ?? payload.tableNumber),
+    seatCount: Number(payload.seats ?? payload.seatCount),
+    isActive: payload.active ?? payload.isActive ?? true,
+  };
+}
+
+async function withStatus(table) {
+  try {
+    const status = data(await api.get(`/tables/${table.id}/status`));
+    return normalizeTable(table, status);
+  } catch {
+    return normalizeTable(table);
+  }
+}
 
 const tablesApi = {
   async getFloors() {
-    await delay(300);
-    return { data: [...floors] };
+    const floors = data(await api.get('/floors')).map(normalizeFloor);
+    return { data: floors };
   },
 
-  async createFloor(data) {
-    await delay(400);
-    const floor = { id: generateId(), ...data };
-    floors.push(floor);
-    return { data: floor };
+  async createFloor(payload) {
+    return { data: normalizeFloor(data(await api.post('/floors', payload))) };
   },
 
   async deleteFloor(id) {
-    await delay(300);
-    floors = floors.filter((f) => f.id !== id);
-    tables = tables.filter((t) => t.floorId !== id);
-    return { data: { success: true } };
+    return ok(await api.delete(`/floors/${id}`));
   },
 
   async getTables(floorId) {
-    await delay(300);
-    const filtered = floorId ? tables.filter((t) => t.floorId === floorId) : [...tables];
-    return { data: filtered };
+    const floors = data(await api.get('/floors')).map(normalizeFloor);
+    const tables = floors.flatMap((floor) => floor.tables || []);
+    return { data: floorId ? tables.filter((table) => table.floorId === floorId) : tables };
   },
 
   async getAllTables() {
-    await delay(300);
-    return { data: [...tables] };
+    const floors = data(await api.get('/floors'));
+    const tables = floors.flatMap((floor) => floor.tables || []);
+    return { data: await Promise.all(tables.map(withStatus)) };
   },
 
-  async createTable(data) {
-    await delay(400);
-    const table = { id: generateId(), ...data, status: 'available' };
-    tables.push(table);
-    return { data: table };
+  async createTable(payload) {
+    const body = toTablePayload(payload);
+    const table = data(await api.post(`/floors/${body.floorId}/tables`, body));
+    return { data: normalizeTable(table) };
   },
 
-  async updateTable(id, data) {
-    await delay(400);
-    const index = tables.findIndex((t) => t.id === id);
-    if (index === -1) throw { response: { data: { message: 'Table not found' } } };
-    tables[index] = { ...tables[index], ...data };
-    return { data: tables[index] };
+  async updateTable(id, payload) {
+    const table = data(await api.patch(`/tables/${id}`, toTablePayload(payload)));
+    return { data: normalizeTable(table) };
   },
 
   async deleteTable(id) {
-    await delay(300);
-    tables = tables.filter((t) => t.id !== id);
-    return { data: { success: true } };
+    return ok(await api.delete(`/tables/${id}`));
   },
 
-  async updateTableStatus(id, status) {
-    await delay(200);
-    const index = tables.findIndex((t) => t.id === id);
-    if (index !== -1) {
-      tables[index].status = status;
-    }
-    return { data: tables[index] };
+  async updateTableStatus(id) {
+    const status = data(await api.get(`/tables/${id}/status`));
+    const table = data(await api.get(`/tables/${id}`));
+    return { data: normalizeTable(table, status) };
   },
 };
 

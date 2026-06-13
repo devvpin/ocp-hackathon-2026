@@ -99,6 +99,26 @@ router.post('/', requireAuth, requireRole('admin'), validate(couponCreateSchema)
   }
 });
 
+router.post('/validate', requireAuth, requireRole('admin', 'employee'), validate(couponValidateSchema), async (req, res, next) => {
+  try {
+    const { code, orderSubtotal } = req.validated.body;
+    const coupon = await prisma.coupon.findUnique({ where: { code } });
+
+    if (!coupon || !coupon.isActive) {
+      return sendSuccess(res, 200, { valid: false, discountAmount: 0 });
+    }
+
+    return sendSuccess(res, 200, {
+      valid: true,
+      discountType: coupon.discountType,
+      discountValue: Number(coupon.discountValue),
+      discountAmount: calculateDiscount(coupon.discountType, coupon.discountValue, orderSubtotal),
+    });
+  } catch (err) {
+    return next(err);
+  }
+});
+
 router.patch(
   '/:id',
   requireAuth,
@@ -123,26 +143,6 @@ router.delete('/:id', requireAuth, requireRole('admin'), validate(idParamSchema,
   try {
     await prisma.coupon.delete({ where: { id: req.validated.params.id } });
     return sendSuccess(res, 200, { deleted: true });
-  } catch (err) {
-    return next(err);
-  }
-});
-
-router.post('/validate', requireAuth, requireRole('admin', 'employee'), validate(couponValidateSchema), async (req, res, next) => {
-  try {
-    const { code, orderSubtotal } = req.validated.body;
-    const coupon = await prisma.coupon.findUnique({ where: { code } });
-
-    if (!coupon || !coupon.isActive) {
-      return sendSuccess(res, 200, { valid: false, discountAmount: 0 });
-    }
-
-    return sendSuccess(res, 200, {
-      valid: true,
-      discountType: coupon.discountType,
-      discountValue: Number(coupon.discountValue),
-      discountAmount: calculateDiscount(coupon.discountType, coupon.discountValue, orderSubtotal),
-    });
   } catch (err) {
     return next(err);
   }

@@ -1,34 +1,18 @@
-import { delay, mockSession } from './mockData';
-
-let session = { ...mockSession };
+import api from './axios';
+import { data } from './envelope';
 
 const sessionsApi = {
   async getCurrent() {
-    await delay(300);
-    return { data: { ...session } };
+    return { data: data(await api.get('/sessions/current')) };
   },
 
   async open() {
-    await delay(500);
-    session = {
-      ...session,
-      isOpen: true,
-      openedAt: new Date().toISOString(),
-      closedAt: null,
-      totalOrders: 0,
-      totalRevenue: 0,
-    };
-    return { data: { ...session } };
+    return { data: data(await api.post('/sessions/open')) };
   },
 
-  async close() {
-    await delay(500);
-    session = {
-      ...session,
-      isOpen: false,
-      closedAt: new Date().toISOString(),
-    };
-    return { data: { ...session } };
+  async close(id) {
+    const sessionId = id || data(await api.get('/sessions/current'))?.id;
+    return { data: data(await api.post(`/sessions/${sessionId}/close`)) };
   },
 };
 

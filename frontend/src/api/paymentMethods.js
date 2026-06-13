@@ -1,27 +1,41 @@
-import { delay, mockPaymentMethods } from './mockData';
+import api from './axios';
+import { data } from './envelope';
 
-let methods = [...mockPaymentMethods];
+const labels = {
+  cash: 'Cash',
+  card: 'Card',
+  upi: 'UPI',
+};
+
+function normalizeMethod(method) {
+  return {
+    ...method,
+    type: method.method,
+    name: labels[method.method] || method.method,
+    enabled: method.isEnabled,
+  };
+}
 
 const paymentMethodsApi = {
   async getAll() {
-    await delay(300);
-    return { data: [...methods] };
+    return { data: data(await api.get('/payment-methods')).map(normalizeMethod) };
   },
 
-  async update(id, data) {
-    await delay(400);
-    const index = methods.findIndex((m) => m.id === id);
-    if (index === -1) throw { response: { data: { message: 'Payment method not found' } } };
-    methods[index] = { ...methods[index], ...data };
-    return { data: methods[index] };
+  async update(id, payload) {
+    const body = {
+      isEnabled: payload.isEnabled ?? payload.enabled,
+      upiId: payload.upiId,
+    };
+    Object.keys(body).forEach((key) => body[key] === undefined && delete body[key]);
+    return { data: normalizeMethod(data(await api.patch(`/payment-methods/${id}`, body))) };
   },
 
-  async toggle(id) {
-    await delay(300);
-    const index = methods.findIndex((m) => m.id === id);
-    if (index === -1) throw { response: { data: { message: 'Payment method not found' } } };
-    methods[index].enabled = !methods[index].enabled;
-    return { data: methods[index] };
+  async toggle(method) {
+    const id = typeof method === 'string' ? method : method.id;
+    const current = typeof method === 'string'
+      ? data(await api.get('/payment-methods')).find((item) => item.id === id)
+      : method;
+    return this.update(id, { isEnabled: !(current.isEnabled ?? current.enabled) });
   },
 };
 

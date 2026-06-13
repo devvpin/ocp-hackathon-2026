@@ -1,49 +1,38 @@
-import { delay, mockUsers, generateId } from './mockData';
+import api from './axios';
+import { data, ok, okList } from './envelope';
 
-let users = [...mockUsers];
+function normalizeUser(user) {
+  return {
+    ...user,
+    status: user.isArchived ? 'archived' : 'active',
+  };
+}
 
 const usersApi = {
-  async getAll() {
-    await delay(300);
-    return { data: [...users] };
+  async getAll(params = {}) {
+    const res = okList(await api.get('/users', { params }));
+    return { ...res, data: res.data.map(normalizeUser) };
   },
 
-  async create(data) {
-    await delay(400);
-    const exists = users.find((u) => u.email === data.email);
-    if (exists) throw { response: { data: { message: 'Email already exists' } } };
-    const user = { id: generateId(), ...data, status: 'active' };
-    users.push(user);
-    return { data: user };
+  async create(payload) {
+    return { data: normalizeUser(data(await api.post('/users', payload))) };
   },
 
-  async update(id, data) {
-    await delay(400);
-    const index = users.findIndex((u) => u.id === id);
-    if (index === -1) throw { response: { data: { message: 'User not found' } } };
-    users[index] = { ...users[index], ...data };
-    return { data: users[index] };
+  async update(id, payload) {
+    return { data: normalizeUser(data(await api.patch(`/users/${id}`, payload))) };
   },
 
   async changePassword(id, newPassword) {
-    await delay(400);
-    const user = users.find((u) => u.id === id);
-    if (!user) throw { response: { data: { message: 'User not found' } } };
-    return { data: { success: true, message: 'Password changed successfully' } };
+    return ok(await api.patch(`/users/${id}/password`, { password: newPassword }));
   },
 
-  async toggleArchive(id) {
-    await delay(300);
-    const index = users.findIndex((u) => u.id === id);
-    if (index === -1) throw { response: { data: { message: 'User not found' } } };
-    users[index].status = users[index].status === 'active' ? 'archived' : 'active';
-    return { data: users[index] };
+  async toggleArchive(user) {
+    const id = typeof user === 'string' ? user : user.id;
+    return { data: normalizeUser(data(await api.patch(`/users/${id}/archive`))) };
   },
 
   async delete(id) {
-    await delay(300);
-    users = users.filter((u) => u.id !== id);
-    return { data: { success: true } };
+    return ok(await api.delete(`/users/${id}`));
   },
 };
 

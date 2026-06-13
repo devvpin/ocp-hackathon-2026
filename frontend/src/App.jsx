@@ -12,7 +12,6 @@ import POSLayout from './layout/POSLayout';
 
 // Auth Pages
 import LoginPage from './pages/auth/LoginPage';
-import SignupPage from './pages/auth/SignupPage';
 
 // Backend Pages
 import ProductsPage from './pages/backend/ProductsPage';
@@ -44,7 +43,7 @@ export default function App() {
                 {/* Auth Routes */}
                 <Route path="/auth" element={<AuthLayout />}>
                   <Route path="login" element={<LoginPage />} />
-                  <Route path="signup" element={<SignupPage />} />
+                  <Route path="signup" element={<Navigate to="login" replace />} />
                   <Route index element={<Navigate to="login" replace />} />
                 </Route>
 

@@ -179,37 +179,6 @@ router.post('/', requireAuth, requireRole('admin'), validate(promotionCreateSche
   }
 });
 
-router.patch(
-  '/:id',
-  requireAuth,
-  requireRole('admin'),
-  validate(idParamSchema, 'params'),
-  validate(promotionUpdateSchema),
-  async (req, res, next) => {
-    try {
-      const data = await buildPromotionUpdateData(req.validated.params.id, req.validated.body);
-      const promotion = await prisma.promotion.update({
-        where: { id: req.validated.params.id },
-        data,
-        include: { product: true },
-      });
-
-      return sendSuccess(res, 200, serializePromotion(promotion));
-    } catch (err) {
-      return next(err);
-    }
-  }
-);
-
-router.delete('/:id', requireAuth, requireRole('admin'), validate(idParamSchema, 'params'), async (req, res, next) => {
-  try {
-    await prisma.promotion.delete({ where: { id: req.validated.params.id } });
-    return sendSuccess(res, 200, { deleted: true });
-  } catch (err) {
-    return next(err);
-  }
-});
-
 router.post('/evaluate', requireAuth, requireRole('admin', 'employee'), validate(promotionEvaluateSchema), async (req, res, next) => {
   try {
     const { items, subtotal } = req.validated.body;
@@ -267,6 +236,37 @@ router.post('/evaluate', requireAuth, requireRole('admin', 'employee'), validate
     }
 
     return sendSuccess(res, 200, { applicableDiscounts });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+router.patch(
+  '/:id',
+  requireAuth,
+  requireRole('admin'),
+  validate(idParamSchema, 'params'),
+  validate(promotionUpdateSchema),
+  async (req, res, next) => {
+    try {
+      const data = await buildPromotionUpdateData(req.validated.params.id, req.validated.body);
+      const promotion = await prisma.promotion.update({
+        where: { id: req.validated.params.id },
+        data,
+        include: { product: true },
+      });
+
+      return sendSuccess(res, 200, serializePromotion(promotion));
+    } catch (err) {
+      return next(err);
+    }
+  }
+);
+
+router.delete('/:id', requireAuth, requireRole('admin'), validate(idParamSchema, 'params'), async (req, res, next) => {
+  try {
+    await prisma.promotion.delete({ where: { id: req.validated.params.id } });
+    return sendSuccess(res, 200, { deleted: true });
   } catch (err) {
     return next(err);
   }

@@ -77,6 +77,15 @@ function buildAuthResponse(user) {
 router.post('/signup', validate(signupSchema), async (req, res, next) => {
   try {
     const { name, email, password } = req.validated.body;
+    const userCount = await prisma.user.count();
+
+    if (userCount > 0) {
+      throw new AppError(
+        'FORBIDDEN',
+        'Self signup is disabled. Ask an admin to create your employee account.'
+      );
+    }
+
     const passwordHash = await bcrypt.hash(password, PASSWORD_COST);
 
     const user = await prisma.user.create({

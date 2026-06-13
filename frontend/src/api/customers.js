@@ -1,39 +1,26 @@
-import { delay, mockCustomers, generateId } from './mockData';
-
-let customers = [...mockCustomers];
+import api from './axios';
+import { data, ok, okList } from './envelope';
 
 const customersApi = {
-  async getAll() {
-    await delay(300);
-    return { data: [...customers] };
+  async getAll(params = {}) {
+    return okList(await api.get('/customers', { params }));
   },
 
   async getById(id) {
-    await delay(200);
-    const customer = customers.find((c) => c.id === id);
-    if (!customer) throw { response: { data: { message: 'Customer not found' } } };
-    return { data: customer };
+    const res = await api.get('/customers', { params: { limit: 100 } });
+    return { data: res.data.data.find((customer) => customer.id === id) };
   },
 
-  async create(data) {
-    await delay(400);
-    const customer = { id: generateId(), ...data };
-    customers.push(customer);
-    return { data: customer };
+  async create(payload) {
+    return { data: data(await api.post('/customers', payload)) };
   },
 
-  async update(id, data) {
-    await delay(400);
-    const index = customers.findIndex((c) => c.id === id);
-    if (index === -1) throw { response: { data: { message: 'Customer not found' } } };
-    customers[index] = { ...customers[index], ...data };
-    return { data: customers[index] };
+  async update(id, payload) {
+    return { data: data(await api.patch(`/customers/${id}`, payload)) };
   },
 
   async delete(id) {
-    await delay(300);
-    customers = customers.filter((c) => c.id !== id);
-    return { data: { success: true } };
+    return ok(await api.delete(`/customers/${id}`));
   },
 };
 
