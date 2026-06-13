@@ -26,7 +26,7 @@ export default function LoginPage() {
       await login(form.email, form.password);
       navigate('/pos');
     } catch (err) {
-      const msg = err?.response?.data?.message || 'Invalid credentials';
+      const msg = err?.response?.data?.error?.message || err?.response?.data?.message || 'Invalid credentials';
       showError(msg);
       setErrors({ general: msg });
     } finally {

@@ -123,6 +123,24 @@ router.post('/logout', requireAuth, (req, res) => {
   return sendSuccess(res, 200, { loggedOut: true });
 });
 
+router.get('/me', requireAuth, async (req, res, next) => {
+  try {
+    const user = await prisma.user.findUnique({ where: { id: req.user.sub } });
+
+    if (!user) {
+      throw new AppError('UNAUTHORIZED', 'Authenticated user no longer exists.');
+    }
+
+    if (user.isArchived) {
+      throw new AppError('ACCOUNT_ARCHIVED', 'This account has been archived.');
+    }
+
+    return sendSuccess(res, 200, { user: serializeUser(user) });
+  } catch (err) {
+    return next(err);
+  }
+});
+
 router.patch('/change-password', requireAuth, validate(changePasswordSchema), async (req, res, next) => {
   try {
     const { currentPassword, newPassword } = req.validated.body;

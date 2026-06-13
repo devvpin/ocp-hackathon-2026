@@ -47,7 +47,12 @@ export function AuthProvider({ children }) {
     return userData;
   }, []);
 
-  const logout = useCallback(() => {
+  const logout = useCallback(async () => {
+    try {
+      await authApi.logout();
+    } catch {
+      // Local logout should still succeed if the token is already invalid.
+    }
     clearAuth();
     setTokenState(null);
     setUser(null);

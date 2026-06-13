@@ -28,7 +28,7 @@ export default function SignupPage() {
       await signup(form.name, form.email, form.password);
       navigate('/pos');
     } catch (err) {
-      const msg = err?.response?.data?.message || 'Signup failed';
+      const msg = err?.response?.data?.error?.message || err?.response?.data?.message || 'Signup failed';
       showError(msg);
       setErrors({ general: msg });
     } finally {
