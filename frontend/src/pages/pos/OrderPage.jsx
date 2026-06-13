@@ -18,7 +18,7 @@ export default function OrderPage() {
   const navigate = useNavigate();
   const { success, error: showError } = useToast();
   const {
-    items, tableNumber, customer, totals, coupon,
+    items, tableNumber, customer, totals, coupon, orderId,
     addItem, removeItem, updateQuantity, setTable,
     setCustomer, setCoupon, removeCoupon, clearCart, loadOrder,
   } = useCart();
@@ -117,7 +117,7 @@ export default function OrderPage() {
   const handleSendToKitchen = async () => {
     if (items.length === 0) { showError('Cart is empty'); return; }
     try {
-      await ordersApi.sendToKitchen('temp');
+      await ordersApi.sendToKitchen(orderId || tableId);
       success('Order sent to kitchen!');
     } catch { showError('Failed to send to kitchen'); }
   };

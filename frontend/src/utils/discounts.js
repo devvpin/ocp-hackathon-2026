@@ -12,7 +12,7 @@ export function applyProductPromotions(cartItems, promotions) {
 
   return cartItems.map((item) => {
     const promo = productPromos.find(
-      (p) => p.productId === item.productId && item.quantity >= p.minimumQuantity
+      (p) => p.productId === item.productId && (!p.minQuantity || item.quantity >= p.minQuantity)
     );
 
     if (promo) {
@@ -43,7 +43,7 @@ export function applyOrderPromotions(subtotal, promotions) {
   let appliedPromo = null;
 
   for (const promo of orderPromos) {
-    if (subtotal >= promo.minimumOrderAmount) {
+    if (!promo.minOrderAmount || subtotal >= promo.minOrderAmount) {
       let discount = 0;
       if (promo.discountType === 'percentage') {
         discount = (subtotal * promo.discountValue) / 100;

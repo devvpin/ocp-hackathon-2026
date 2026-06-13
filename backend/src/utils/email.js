@@ -45,7 +45,7 @@ async function sendMail({ to, subject, html }) {
   const t = getTransporter();
   if (!t) {
     console.log(`[Email] Would send to ${to}: ${subject}`);
-    return;
+    return false;
   }
 
   await t.sendMail({
@@ -54,6 +54,7 @@ async function sendMail({ to, subject, html }) {
     subject,
     html,
   });
+  return true;
 }
 
 module.exports = { sendMail };

@@ -83,8 +83,8 @@ export default function App() {
                   <Route path="customers" element={<CustomersPage />} />
                 </Route>
 
-                {/* KDS Route (Standalone) */}
-                <Route path="/kds" element={<KDSPage />} />
+                {/* KDS Route (Authenticated) */}
+                <Route path="/kds" element={<ProtectedRoute><KDSPage /></ProtectedRoute>} />
 
                 {/* Default redirect */}
                 <Route path="/" element={<Navigate to="/auth/login" replace />} />

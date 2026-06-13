@@ -309,7 +309,33 @@ router.patch('/:id', requireAuth, requireRole('admin', 'employee'), validate(idP
     const existing = await getDraftOrder(req.validated.params.id);
     const calculation = await calculateOrder(req.validated.body);
     const order = await prisma.$transaction(async (tx) => {
-      await tx.orderItem.deleteMany({ where: { orderId: existing.id } });
+      const existingItemsByProduct = new Map(existing.items.map(i => [i.productId, i]));
+      const newItems = [];
+      const updateItems = [];
+      const keepItemIds = new Set();
+
+      for (const item of calculation.items) {
+        const ext = existingItemsByProduct.get(item.productId);
+        if (ext) {
+          keepItemIds.add(ext.id);
+          updateItems.push({ id: ext.id, data: item });
+        } else {
+          newItems.push(item);
+        }
+      }
+
+      const itemsToDelete = existing.items.filter(i => !keepItemIds.has(i.id)).map(i => i.id);
+
+      if (itemsToDelete.length > 0) {
+        await tx.orderItem.deleteMany({ where: { id: { in: itemsToDelete } } });
+      }
+      for (const updateItem of updateItems) {
+        await tx.orderItem.update({ where: { id: updateItem.id }, data: updateItem.data });
+      }
+      if (newItems.length > 0) {
+        await tx.orderItem.createMany({ data: newItems.map(item => ({ ...item, orderId: existing.id })) });
+      }
+
       return tx.order.update({
         where: { id: existing.id },
         data: {
@@ -320,7 +346,6 @@ router.patch('/:id', requireAuth, requireRole('admin', 'employee'), validate(idP
           taxAmount: calculation.taxAmount,
           discountAmount: calculation.discountAmount,
           total: calculation.total,
-          items: { create: calculation.items },
         },
         include: orderInclude(),
       });
@@ -460,14 +485,18 @@ router.post('/:id/send-receipt', requireAuth, requireRole('admin', 'employee'), 
       </div>
     `;
 
-    await sendMail({ to, subject: `${env.CAFE_NAME} receipt #${order.orderNumber}`, html });
-    const updated = await prisma.order.update({
-      where: { id: order.id },
-      data: { receiptSentAt: new Date() },
-      include: orderInclude(),
-    });
+    const sent = await sendMail({ to, subject: `${env.CAFE_NAME} receipt #${order.orderNumber}`, html });
+    let updated = order;
+    
+    if (sent) {
+      updated = await prisma.order.update({
+        where: { id: order.id },
+        data: { receiptSentAt: new Date() },
+        include: orderInclude(),
+      });
+    }
 
-    return sendSuccess(res, 200, { sent: true, order: serializeOrder(updated) });
+    return sendSuccess(res, 200, { sent, order: serializeOrder(updated) });
   } catch (err) {
     return next(err);
   }

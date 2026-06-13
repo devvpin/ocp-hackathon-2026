@@ -33,13 +33,13 @@ export function SessionProvider({ children }) {
   const closeSession = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await sessionsApi.close();
+      const res = await sessionsApi.close(session?.id);
       setSession(res.data);
       return res.data;
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [session]);
 
   return (
     <SessionContext.Provider

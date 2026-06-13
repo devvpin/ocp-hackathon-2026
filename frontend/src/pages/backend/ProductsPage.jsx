@@ -54,11 +54,16 @@ export default function ProductsPage() {
     if (!form.name.trim() || !form.price) { showError('Name and Price are required'); return; }
     setSaving(true);
     try {
+      const payload = {
+        ...form,
+        price: Number(Number(form.price).toFixed(2)),
+        tax: Number(Number(form.tax || 0).toFixed(2))
+      };
       if (editing) {
-        await productsApi.update(editing.id, { ...form, price: Number(form.price), tax: Number(form.tax || 0) });
+        await productsApi.update(editing.id, payload);
         success('Product updated');
       } else {
-        await productsApi.create({ ...form, price: Number(form.price), tax: Number(form.tax || 0) });
+        await productsApi.create(payload);
         success('Product created');
       }
       setModalOpen(false);

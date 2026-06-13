@@ -137,7 +137,12 @@ router.patch(
 
 router.patch('/:id/archive', requireAuth, requireRole('admin'), validate(idParamSchema, 'params'), async (req, res, next) => {
   try {
-    const existing = await prisma.user.findUniqueOrThrow({ where: { id: req.validated.params.id } });
+    const targetId = req.validated.params.id;
+    if (targetId === req.user.sub) {
+      const { AppError } = require('../../middleware/errorHandler');
+      throw new AppError('BAD_REQUEST', 'You cannot archive yourself.');
+    }
+    const existing = await prisma.user.findUniqueOrThrow({ where: { id: targetId } });
     const user = await prisma.user.update({
       where: { id: existing.id },
       data: { isArchived: !existing.isArchived },
@@ -151,7 +156,12 @@ router.patch('/:id/archive', requireAuth, requireRole('admin'), validate(idParam
 
 router.delete('/:id', requireAuth, requireRole('admin'), validate(idParamSchema, 'params'), async (req, res, next) => {
   try {
-    await prisma.user.delete({ where: { id: req.validated.params.id } });
+    const targetId = req.validated.params.id;
+    if (targetId === req.user.sub) {
+      const { AppError } = require('../../middleware/errorHandler');
+      throw new AppError('BAD_REQUEST', 'You cannot delete yourself.');
+    }
+    await prisma.user.delete({ where: { id: targetId } });
     return sendSuccess(res, 200, { deleted: true });
   } catch (err) {
     return next(err);

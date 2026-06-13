@@ -17,6 +17,23 @@ function initWebSocket(httpServer) {
 
   wss.on('connection', (ws, req) => {
     console.log(`[WS] Client connected from ${req.socket.remoteAddress}`);
+
+    const params = new URLSearchParams(req.url.split('?')[1] || '');
+    const token = params.get('token');
+    
+    if (!token) {
+      ws.close(4001, 'Unauthorized');
+      return;
+    }
+
+    try {
+      const { verifyToken } = require('../config/jwt');
+      verifyToken(token);
+    } catch (err) {
+      ws.close(4001, 'Unauthorized');
+      return;
+    }
+
     ws.isAlive = true;
 
     ws.on('pong', () => {

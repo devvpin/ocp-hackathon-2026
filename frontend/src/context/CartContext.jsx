@@ -119,7 +119,7 @@ export function CartProvider({ children }) {
         productId: product.id,
         name: product.name,
         price: product.price,
-        tax: product.tax || 0,
+        tax: product.taxPercent || product.tax || 0,
         categoryId: product.categoryId,
       },
     });

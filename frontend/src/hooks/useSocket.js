@@ -1,4 +1,5 @@
 import { useEffect, useRef, useCallback } from 'react';
+import { getToken } from '../utils/tokenStorage';
 
 export default function useSocket(url, onMessage) {
   const wsRef = useRef(null);
@@ -6,7 +7,10 @@ export default function useSocket(url, onMessage) {
 
   const connect = useCallback(() => {
     try {
-      const wsUrl = url || import.meta.env.VITE_WS_URL || 'ws://localhost:8000/ws';
+      const token = getToken();
+      if (!token) return; // Don't connect if not authenticated
+      const baseUrl = url || import.meta.env.VITE_WS_URL || 'ws://localhost:8000/ws';
+      const wsUrl = `${baseUrl}?token=${token}`;
       wsRef.current = new WebSocket(wsUrl);
 
       wsRef.current.onopen = () => {
@@ -37,8 +41,7 @@ export default function useSocket(url, onMessage) {
   }, [url, onMessage]);
 
   useEffect(() => {
-    // Don't connect in mock mode since there's no WS server
-    // connect();
+    connect();
 
     return () => {
       if (reconnectRef.current) clearTimeout(reconnectRef.current);

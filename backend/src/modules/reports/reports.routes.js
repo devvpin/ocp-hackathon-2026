@@ -2,12 +2,25 @@
 
 const { Router } = require('express');
 
+const { z } = require('zod');
 const prisma = require('../../config/db');
 const { requireAuth, requireRole } = require('../../middleware/auth');
+const validate = require('../../middleware/validate');
 const { AppError } = require('../../middleware/errorHandler');
 const { sendSuccess } = require('../../utils/response');
 
 const router = Router();
+
+const reportsQuerySchema = z.object({
+  period: z.enum(['today', 'week', 'month', 'custom']).optional(),
+  from: z.string().datetime().optional(),
+  to: z.string().datetime().optional(),
+  employeeId: z.string().uuid().optional(),
+  sessionId: z.string().uuid().optional(),
+  productId: z.string().uuid().optional(),
+  groupBy: z.enum(['hour', 'day', 'week']).optional(),
+  limit: z.coerce.number().int().min(1).max(100).optional(),
+});
 
 router.use(requireAuth, requireRole('admin'));
 
@@ -67,7 +80,7 @@ function bucketKey(date, groupBy) {
   return d.toISOString().slice(0, 10);
 }
 
-router.get('/summary', async (req, res, next) => {
+router.get('/summary', validate(reportsQuerySchema, 'query'), async (req, res, next) => {
   try {
     const where = paidOrderWhere(req.query);
     const [totalOrders, aggregate] = await Promise.all([
@@ -86,7 +99,7 @@ router.get('/summary', async (req, res, next) => {
   }
 });
 
-router.get('/sales-trend', async (req, res, next) => {
+router.get('/sales-trend', validate(reportsQuerySchema, 'query'), async (req, res, next) => {
   try {
     const groupBy = req.query.groupBy || 'day';
     const orders = await prisma.order.findMany({
@@ -110,7 +123,7 @@ router.get('/sales-trend', async (req, res, next) => {
   }
 });
 
-router.get('/top-products', async (req, res, next) => {
+router.get('/top-products', validate(reportsQuerySchema, 'query'), async (req, res, next) => {
   try {
     const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 10));
     const items = await prisma.orderItem.findMany({
@@ -137,7 +150,7 @@ router.get('/top-products', async (req, res, next) => {
   }
 });
 
-router.get('/top-categories', async (req, res, next) => {
+router.get('/top-categories', validate(reportsQuerySchema, 'query'), async (req, res, next) => {
   try {
     const items = await prisma.orderItem.findMany({
       where: { order: paidOrderWhere(req.query) },
@@ -164,7 +177,7 @@ router.get('/top-categories', async (req, res, next) => {
   }
 });
 
-router.get('/top-orders', async (req, res, next) => {
+router.get('/top-orders', validate(reportsQuerySchema, 'query'), async (req, res, next) => {
   try {
     const orders = await prisma.order.findMany({
       where: paidOrderWhere(req.query),

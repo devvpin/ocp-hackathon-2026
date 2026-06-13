@@ -57,10 +57,14 @@ export default function KDSPage() {
     const interval = setInterval(fetchOrders, 5000);
     return () => clearInterval(interval);
   }, []);
-  const handleAdvanceStage = async (orderId) => {
+  const handleAdvanceStage = async (order) => {
     try {
-      dispatch({ type: 'ADVANCE_STAGE', payload: orderId });
-      await kdsApi.advanceStage(orderId);
+      const idx = stages.findIndex((s) => s.key === order.stage);
+      if (idx < stages.length - 1) {
+        const newStage = stages[idx + 1].key;
+        dispatch({ type: 'ADVANCE_STAGE', payload: order.id });
+        await kdsApi.advanceStage(order.id, newStage);
+      }
     } catch { showError('Failed to update order'); }
   };
   const handleToggleItem = async (orderId, itemId, e) => {
@@ -73,7 +77,7 @@ export default function KDSPage() {
   const filteredOrders = orders.filter((o) => {
     if (search) {
       const s = search.toLowerCase();
-      const matchesOrder = o.orderNumber.toLowerCase().includes(s);
+      const matchesOrder = String(o.orderNumber).toLowerCase().includes(s);
       const matchesItem = o.items.some((i) => i.name.toLowerCase().includes(s));
       if (!matchesOrder && !matchesItem) return false;
     }
@@ -125,7 +129,7 @@ export default function KDSPage() {
                   stageOrders.map((order) => (
                     <div
                       key={order.id}
-                      onClick={() => handleAdvanceStage(order.id)}
+                      onClick={() => handleAdvanceStage(order)}
                       className={`bg-white rounded-xl p-4 shadow-sm border-l-4 cursor-pointer hover:shadow-lg transition-all active:scale-[0.98] animate-slide-up`}
                       style={{ borderLeftColor: stage.color.replace('bg-', '').includes('warning') ? '#F59E0B' : stage.color.includes('primary') ? '#3B82F6' : '#22C55E' }}
                     >

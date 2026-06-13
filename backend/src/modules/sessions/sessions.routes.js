@@ -33,12 +33,12 @@ function serializeSession(session) {
 }
 
 async function computeRevenue(sessionId) {
-  const paidOrders = await prisma.order.findMany({
+  const result = await prisma.order.aggregate({
     where: { sessionId, status: 'paid' },
-    select: { total: true },
+    _sum: { total: true },
   });
 
-  return money(paidOrders.reduce((sum, order) => sum + Number(order.total), 0));
+  return money(result._sum.total || 0);
 }
 
 router.get('/current', requireAuth, async (_req, res, next) => {
