@@ -1,8 +1,7 @@
 /**
- * promotions.routes.js — Promotions API routes.
- * Implemented in Phase 5.
+ * promotions.routes.js - promotions API routes.
  */
 const { Router } = require('express');
 const router = Router();
-// Routes implemented in Phase 5
+
 module.exports = router;

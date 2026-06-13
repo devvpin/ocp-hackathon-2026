@@ -1,8 +1,7 @@
 /**
- * users.routes.js — Users API routes.
- * Implemented in Phase 4.
+ * users.routes.js - users API routes.
  */
 const { Router } = require('express');
 const router = Router();
-// Routes implemented in Phase 4
+
 module.exports = router;

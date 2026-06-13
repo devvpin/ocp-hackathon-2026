@@ -1,12 +1,3 @@
-// schema.prisma — Odoo Cafe POS
-//
-// Phase 0: Minimal valid schema (datasource + generator only).
-// Phase 1: Adds all 11 tables with enums, FKs, and indexes.
-//
-// Run migrations:  npx prisma migrate dev --name <name>
-// Apply to prod:   npx prisma migrate deploy
-// Regenerate:      npx prisma generate
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -16,6 +7,225 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Full schema models are added in Phase 1.
-// ─────────────────────────────────────────────────────────────────────────────
+enum Role {
+  admin
+  employee
+}
+
+enum UnitOfMeasure {
+  per_piece
+  per_kg
+  per_litre
+}
+
+enum PaymentMethodType {
+  cash
+  card
+  upi
+}
+
+enum OrderStatus {
+  draft
+  paid
+  cancelled
+}
+
+enum KdsStage {
+  to_cook
+  preparing
+  completed
+}
+
+enum DiscountType {
+  percentage
+  fixed
+}
+
+enum PromotionAppliedTo {
+  product
+  order
+}
+
+model User {
+  id           String    @id @default(uuid()) @db.Uuid
+  name         String    @db.VarChar(255)
+  email        String    @unique @db.VarChar(255)
+  passwordHash String    @map("password_hash") @db.VarChar(255)
+  role         Role
+  isArchived   Boolean   @default(false) @map("is_archived")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  sessions     Session[] @relation("OpenedSessions")
+  orders       Order[]   @relation("EmployeeOrders")
+
+  @@index([role])
+  @@index([isArchived])
+  @@map("users")
+}
+
+model Category {
+  id        String    @id @default(uuid()) @db.Uuid
+  name      String    @unique @db.VarChar(255)
+  color     String    @db.VarChar(20)
+  createdAt DateTime  @default(now()) @map("created_at")
+  products  Product[]
+
+  @@map("categories")
+}
+
+model Product {
+  id            String        @id @default(uuid()) @db.Uuid
+  name          String        @db.VarChar(255)
+  categoryId    String        @map("category_id") @db.Uuid
+  category      Category      @relation(fields: [categoryId], references: [id])
+  price         Decimal       @db.Decimal(10, 2)
+  unitOfMeasure UnitOfMeasure @map("unit_of_measure")
+  taxPercent    Decimal       @map("tax_percent") @db.Decimal(5, 2)
+  description   String?
+  showOnKds     Boolean       @default(true) @map("show_on_kds")
+  createdAt     DateTime      @default(now()) @map("created_at")
+  orderItems    OrderItem[]
+  promotions    Promotion[]
+
+  @@index([categoryId])
+  @@index([name])
+  @@map("products")
+}
+
+model PaymentMethod {
+  id        String            @id @default(uuid()) @db.Uuid
+  method    PaymentMethodType @unique
+  isEnabled Boolean           @default(false) @map("is_enabled")
+  upiId     String?           @map("upi_id") @db.VarChar(255)
+
+  @@map("payment_methods")
+}
+
+model Floor {
+  id     String        @id @default(uuid()) @db.Uuid
+  name   String        @db.VarChar(255)
+  tables DiningTable[]
+
+  @@map("floors")
+}
+
+model DiningTable {
+  id          String  @id @default(uuid()) @db.Uuid
+  floorId     String  @map("floor_id") @db.Uuid
+  floor       Floor   @relation(fields: [floorId], references: [id], onDelete: Cascade)
+  tableNumber Int     @map("table_number")
+  seatCount   Int     @map("seat_count")
+  isActive    Boolean @default(true) @map("is_active")
+  orders      Order[]
+
+  @@unique([floorId, tableNumber])
+  @@index([floorId])
+  @@map("tables")
+}
+
+model Session {
+  id             String    @id @default(uuid()) @db.Uuid
+  openedBy       String    @map("opened_by") @db.Uuid
+  openedByUser   User      @relation("OpenedSessions", fields: [openedBy], references: [id])
+  openedAt       DateTime  @default(now()) @map("opened_at")
+  closedAt       DateTime? @map("closed_at")
+  closingRevenue Decimal?  @map("closing_revenue") @db.Decimal(10, 2)
+  orders         Order[]
+
+  @@index([openedBy])
+  @@index([closedAt])
+  @@map("sessions")
+}
+
+model Customer {
+  id        String   @id @default(uuid()) @db.Uuid
+  name      String   @db.VarChar(255)
+  email     String?  @db.VarChar(255)
+  phone     String?  @db.VarChar(50)
+  createdAt DateTime @default(now()) @map("created_at")
+  orders    Order[]
+
+  @@index([email])
+  @@index([phone])
+  @@map("customers")
+}
+
+model Order {
+  id               String             @id @default(uuid()) @db.Uuid
+  orderNumber      Int                @default(autoincrement()) @map("order_number")
+  sessionId        String             @map("session_id") @db.Uuid
+  session          Session            @relation(fields: [sessionId], references: [id])
+  tableId          String?            @map("table_id") @db.Uuid
+  table            DiningTable?       @relation(fields: [tableId], references: [id])
+  customerId       String?            @map("customer_id") @db.Uuid
+  customer         Customer?          @relation(fields: [customerId], references: [id])
+  employeeId       String             @map("employee_id") @db.Uuid
+  employee         User               @relation("EmployeeOrders", fields: [employeeId], references: [id])
+  status           OrderStatus        @default(draft)
+  subtotal         Decimal            @db.Decimal(10, 2)
+  taxAmount        Decimal            @map("tax_amount") @db.Decimal(10, 2)
+  discountAmount   Decimal            @default(0) @map("discount_amount") @db.Decimal(10, 2)
+  total            Decimal            @db.Decimal(10, 2)
+  paymentMethod    PaymentMethodType? @map("payment_method")
+  paymentReference String?            @map("payment_reference") @db.VarChar(255)
+  createdAt        DateTime           @default(now()) @map("created_at")
+  paidAt           DateTime?          @map("paid_at")
+  items            OrderItem[]
+
+  @@index([sessionId])
+  @@index([tableId])
+  @@index([customerId])
+  @@index([employeeId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("orders")
+}
+
+model OrderItem {
+  id           String   @id @default(uuid()) @db.Uuid
+  orderId      String   @map("order_id") @db.Uuid
+  order        Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId    String   @map("product_id") @db.Uuid
+  product      Product  @relation(fields: [productId], references: [id])
+  productName  String   @map("product_name") @db.VarChar(255)
+  unitPrice    Decimal  @map("unit_price") @db.Decimal(10, 2)
+  quantity     Int
+  taxPercent   Decimal  @map("tax_percent") @db.Decimal(5, 2)
+  lineDiscount Decimal  @default(0) @map("line_discount") @db.Decimal(10, 2)
+  lineTotal    Decimal  @map("line_total") @db.Decimal(10, 2)
+  kdsStage     KdsStage @default(to_cook) @map("kds_stage")
+  kdsItemDone  Boolean  @default(false) @map("kds_item_done")
+
+  @@index([orderId])
+  @@index([productId])
+  @@index([kdsStage])
+  @@map("order_items")
+}
+
+model Coupon {
+  id            String       @id @default(uuid()) @db.Uuid
+  code          String       @unique @db.VarChar(100)
+  discountType  DiscountType @map("discount_type")
+  discountValue Decimal      @map("discount_value") @db.Decimal(10, 2)
+  isActive      Boolean      @default(true) @map("is_active")
+
+  @@index([isActive])
+  @@map("coupons")
+}
+
+model Promotion {
+  id             String             @id @default(uuid()) @db.Uuid
+  name           String             @db.VarChar(255)
+  appliedTo      PromotionAppliedTo @map("applied_to")
+  productId      String?            @map("product_id") @db.Uuid
+  product        Product?           @relation(fields: [productId], references: [id])
+  minQuantity    Int?               @map("min_quantity")
+  minOrderAmount Decimal?           @map("min_order_amount") @db.Decimal(10, 2)
+  discountType   DiscountType       @map("discount_type")
+  discountValue  Decimal            @map("discount_value") @db.Decimal(10, 2)
+  isActive       Boolean            @default(true) @map("is_active")
+
+  @@index([productId])
+  @@index([appliedTo])
+  @@index([isActive])
+  @@map("promotions")
+}

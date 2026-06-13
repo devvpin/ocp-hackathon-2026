@@ -1,8 +1,7 @@
 /**
  * email.js — Nodemailer-based email sender.
  *
- * Phase 7 implements the full HTML receipt template.
- * This file sets up the transporter and exposes a `sendMail` helper.
+ * Sets up the transporter and exposes a `sendMail` helper.
  */
 
 const nodemailer = require('nodemailer');

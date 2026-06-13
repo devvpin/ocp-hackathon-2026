@@ -1,8 +1,7 @@
 /**
- * categories.routes.js — Categories API routes.
- * Implemented in Phase 3.
+ * categories.routes.js - categories API routes.
  */
 const { Router } = require('express');
 const router = Router();
-// Routes implemented in Phase 3
+
 module.exports = router;

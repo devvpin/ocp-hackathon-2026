@@ -13,6 +13,7 @@
 
 const { verifyToken } = require('../config/jwt');
 const { sendError } = require('../utils/response');
+const { isTokenBlacklisted } = require('../utils/authTokens');
 
 /**
  * @param {import('express').Request} req
@@ -29,8 +30,12 @@ function requireAuth(req, res, next) {
   const token = authHeader.split(' ')[1];
 
   try {
+    if (isTokenBlacklisted(token)) {
+      return sendError(res, 401, 'INVALID_TOKEN', 'Authentication token has been logged out.');
+    }
     const decoded = verifyToken(token);
     req.user = decoded;
+    req.token = token;
     next();
   } catch (err) {
     if (err.name === 'TokenExpiredError') {
