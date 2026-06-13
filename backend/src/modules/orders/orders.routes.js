@@ -46,6 +46,15 @@ function money(value) {
   return Math.round(Number(value || 0) * 100) / 100;
 }
 
+function escapeHtml(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
 function serializeItem(item) {
   return {
     id: item.id,
@@ -122,9 +131,10 @@ async function calculateOrder(input) {
   const promotions = await prisma.promotion.findMany({
     where: {
       isActive: true,
-      OR: input.promotionIds?.length
-        ? [{ id: { in: input.promotionIds } }]
-        : [{ appliedTo: 'product' }, { appliedTo: 'order' }],
+      OR: [
+        { appliedTo: 'product', productId: { in: productIds } },
+        { appliedTo: 'order' },
+      ],
     },
   });
 
@@ -255,21 +265,35 @@ router.post('/', requireAuth, requireRole('admin', 'employee'), validate(orderWr
   try {
     const session = await getOpenSession();
     const calculation = await calculateOrder(req.validated.body);
-    const order = await prisma.order.create({
-      data: {
-        sessionId: session.id,
-        tableId: req.validated.body.tableId || null,
-        customerId: req.validated.body.customerId || null,
-        couponId: calculation.couponId,
-        employeeId: req.user.sub,
-        status: 'draft',
-        subtotal: calculation.subtotal,
-        taxAmount: calculation.taxAmount,
-        discountAmount: calculation.discountAmount,
-        total: calculation.total,
-        items: { create: calculation.items },
-      },
-      include: orderInclude(),
+    const tableId = req.validated.body.tableId || null;
+    const order = await prisma.$transaction(async (tx) => {
+      if (tableId) {
+        const existing = await tx.order.findFirst({
+          where: { tableId, status: 'draft' },
+          select: { id: true },
+        });
+
+        if (existing) {
+          throw new AppError('TABLE_OCCUPIED', 'Table already has a draft order.');
+        }
+      }
+
+      return tx.order.create({
+        data: {
+          sessionId: session.id,
+          tableId,
+          customerId: req.validated.body.customerId || null,
+          couponId: calculation.couponId,
+          employeeId: req.user.sub,
+          status: 'draft',
+          subtotal: calculation.subtotal,
+          taxAmount: calculation.taxAmount,
+          discountAmount: calculation.discountAmount,
+          total: calculation.total,
+          items: { create: calculation.items },
+        },
+        include: orderInclude(),
+      });
     });
 
     broadcastTable(order.tableId, true, order.id);
@@ -323,15 +347,25 @@ router.patch('/:id/pay', requireAuth, requireRole('admin', 'employee'), validate
       throw new AppError('BAD_REQUEST', 'Payment reference is required for card and UPI payments.');
     }
 
-    const paid = await prisma.order.update({
-      where: { id: order.id },
-      data: {
-        status: 'paid',
-        paidAt: new Date(),
-        paymentMethod,
-        paymentReference: paymentReference || null,
-      },
-      include: orderInclude(),
+    const paid = await prisma.$transaction(async (tx) => {
+      const result = await tx.order.updateMany({
+        where: { id: order.id, status: 'draft' },
+        data: {
+          status: 'paid',
+          paidAt: new Date(),
+          paymentMethod,
+          paymentReference: paymentReference || null,
+        },
+      });
+
+      if (result.count !== 1) {
+        throw new AppError('PAYMENT_ALREADY_PROCESSED', 'Order payment has already been processed.');
+      }
+
+      return tx.order.findUnique({
+        where: { id: order.id },
+        include: orderInclude(),
+      });
     });
 
     broadcastTable(paid.tableId, false, paid.id);
@@ -405,15 +439,15 @@ router.post('/:id/send-receipt', requireAuth, requireRole('admin', 'employee'), 
     if (!to) throw new AppError('BAD_REQUEST', 'Receipt email address is required.');
 
     const rows = order.items.map((item) => `
-      <tr><td>${item.productName}</td><td>${item.quantity}</td><td>${Number(item.unitPrice).toFixed(2)}</td><td>${Number(item.lineTotal).toFixed(2)}</td></tr>
+      <tr><td>${escapeHtml(item.productName)}</td><td>${item.quantity}</td><td>${Number(item.unitPrice).toFixed(2)}</td><td>${Number(item.lineTotal).toFixed(2)}</td></tr>
     `).join('');
     const html = `
       <div style="font-family:Arial,sans-serif;color:#111827">
-        <h2>${env.CAFE_NAME}</h2>
+        <h2>${escapeHtml(env.CAFE_NAME)}</h2>
         <p><strong>Order:</strong> #${order.orderNumber}</p>
         <p><strong>Date:</strong> ${order.createdAt.toISOString()}</p>
-        <p><strong>Table:</strong> ${order.table?.tableNumber ?? 'N/A'}</p>
-        <p><strong>Customer:</strong> ${order.customer?.name ?? 'Guest'}</p>
+        <p><strong>Table:</strong> ${escapeHtml(order.table?.tableNumber ?? 'N/A')}</p>
+        <p><strong>Customer:</strong> ${escapeHtml(order.customer?.name ?? 'Guest')}</p>
         <table cellpadding="8" cellspacing="0" border="1" style="border-collapse:collapse">
           <thead><tr><th>Item</th><th>Qty</th><th>Unit</th><th>Total</th></tr></thead>
           <tbody>${rows}</tbody>

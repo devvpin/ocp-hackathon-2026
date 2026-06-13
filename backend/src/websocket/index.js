@@ -3,9 +3,10 @@
  * Event format: JSON string { "event": "<name>", "payload": {...} }
  */
 
-const { WebSocketServer } = require('ws');
+const { WebSocket, WebSocketServer } = require('ws');
 
 let wss;
+let heartbeatInterval;
 
 /**
  * Attaches a WebSocket server to an existing HTTP server.
@@ -16,6 +17,11 @@ function initWebSocket(httpServer) {
 
   wss.on('connection', (ws, req) => {
     console.log(`[WS] Client connected from ${req.socket.remoteAddress}`);
+    ws.isAlive = true;
+
+    ws.on('pong', () => {
+      ws.isAlive = true;
+    });
 
     ws.on('close', () => {
       console.log('[WS] Client disconnected');
@@ -27,6 +33,22 @@ function initWebSocket(httpServer) {
 
     // Send a welcome ping
     ws.send(JSON.stringify({ event: 'connected', payload: { status: 'ok' } }));
+  });
+
+  heartbeatInterval = setInterval(() => {
+    wss.clients.forEach((ws) => {
+      if (!ws.isAlive) {
+        ws.terminate();
+        return;
+      }
+
+      ws.isAlive = false;
+      ws.ping();
+    });
+  }, 30000);
+
+  wss.on('close', () => {
+    clearInterval(heartbeatInterval);
   });
 
   console.log('[WS] WebSocket server ready at ws://host/ws');
@@ -44,7 +66,7 @@ function broadcast(event, payload) {
   const message = JSON.stringify({ event, payload });
 
   wss.clients.forEach((client) => {
-    if (client.readyState === client.OPEN) {
+    if (client.readyState === WebSocket.OPEN) {
       client.send(message);
     }
   });

@@ -1,6 +1,7 @@
 'use strict';
 
 const { Router } = require('express');
+const { Prisma } = require('@prisma/client');
 const { z } = require('zod');
 
 const prisma = require('../../config/db');
@@ -68,17 +69,23 @@ router.get('/latest', requireAuth, async (_req, res, next) => {
 
 router.post('/open', requireAuth, requireRole('admin', 'employee'), async (req, res, next) => {
   try {
-    const openSession = await prisma.session.findFirst({ where: { isOpen: true } });
-    if (openSession) {
-      throw new AppError('SESSION_ALREADY_OPEN', 'A POS session is already open.');
-    }
+    const session = await prisma.$transaction(async (tx) => {
+      const openSession = await tx.session.findFirst({
+        where: { isOpen: true },
+        select: { id: true },
+      });
 
-    const session = await prisma.session.create({
-      data: {
-        openedBy: req.user.sub,
-        isOpen: true,
-      },
-    });
+      if (openSession) {
+        throw new AppError('SESSION_ALREADY_OPEN', 'A POS session is already open.');
+      }
+
+      return tx.session.create({
+        data: {
+          openedBy: req.user.sub,
+          isOpen: true,
+        },
+      });
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
 
     return sendSuccess(res, 201, serializeSession(session));
   } catch (err) {

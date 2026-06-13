@@ -66,6 +66,7 @@ model User {
 
   @@index([role])
   @@index([isArchived])
+  @@index([email, isArchived])
   @@map("users")
 }
 
@@ -143,6 +144,7 @@ model Session {
   @@index([openedBy])
   @@index([closedAt])
   @@index([isOpen])
+  @@index([isOpen, openedAt])
   @@map("sessions")
 }
 
@@ -191,6 +193,7 @@ model Order {
   @@index([employeeId])
   @@index([status])
   @@index([createdAt])
+  @@index([sessionId, status, createdAt])
   @@map("orders")
 }
 
@@ -212,6 +215,7 @@ model OrderItem {
   @@index([orderId])
   @@index([productId])
   @@index([kdsStage])
+  @@index([kdsStage, kdsItemDone])
   @@map("order_items")
 }
 

@@ -11,7 +11,12 @@ const env = require('./env');
  * @returns {string} signed token
  */
 function signToken(payload) {
-  return jwt.sign(payload, env.JWT_SECRET, { expiresIn: env.JWT_EXPIRY });
+  return jwt.sign(payload, env.JWT_SECRET, {
+    expiresIn: env.JWT_EXPIRY,
+    algorithm: 'HS256',
+    issuer: 'cafe-pos-api',
+    audience: 'cafe-pos-client',
+  });
 }
 
 /**
@@ -21,7 +26,11 @@ function signToken(payload) {
  * @returns {object} decoded payload
  */
 function verifyToken(token) {
-  return jwt.verify(token, env.JWT_SECRET);
+  return jwt.verify(token, env.JWT_SECRET, {
+    algorithms: ['HS256'],
+    issuer: 'cafe-pos-api',
+    audience: 'cafe-pos-client',
+  });
 }
 
 module.exports = { signToken, verifyToken };

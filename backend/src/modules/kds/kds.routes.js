@@ -4,12 +4,15 @@ const { Router } = require('express');
 const { z } = require('zod');
 
 const prisma = require('../../config/db');
+const { requireAuth, requireRole } = require('../../middleware/auth');
 const validate = require('../../middleware/validate');
 const { AppError } = require('../../middleware/errorHandler');
 const { sendSuccess } = require('../../utils/response');
 const { broadcast } = require('../../websocket');
 
 const router = Router();
+
+router.use(requireAuth, requireRole('admin', 'employee'));
 
 const orderIdParamSchema = z.object({
   orderId: z.string().uuid('Invalid order id.'),

@@ -25,4 +25,15 @@ const env = {
   CAFE_NAME: process.env.CAFE_NAME || 'Odoo Cafe',
 };
 
+const required = ['DATABASE_URL', 'JWT_SECRET'];
+const missing = required.filter((key) => !process.env[key]);
+
+if (missing.length > 0) {
+  throw new Error(`Missing required environment variable(s): ${missing.join(', ')}`);
+}
+
+if (env.NODE_ENV === 'production' && env.JWT_SECRET === 'dev_secret_change_me') {
+  throw new Error('Cannot use the default JWT_SECRET in production.');
+}
+
 module.exports = env;
