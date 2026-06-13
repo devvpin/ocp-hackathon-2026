@@ -1,0 +1,21 @@
+// schema.prisma — Odoo Cafe POS
+//
+// Phase 0: Minimal valid schema (datasource + generator only).
+// Phase 1: Adds all 11 tables with enums, FKs, and indexes.
+//
+// Run migrations:  npx prisma migrate dev --name <name>
+// Apply to prod:   npx prisma migrate deploy
+// Regenerate:      npx prisma generate
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Full schema models are added in Phase 1.
+// ─────────────────────────────────────────────────────────────────────────────
