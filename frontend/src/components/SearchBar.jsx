@@ -42,7 +42,7 @@ export default function SearchBar({
         value={localValue}
         onChange={handleChange}
         placeholder={placeholder}
-        className={`w-full pl-10 pr-9 py-2.5 border rounded-cafe text-sm focus:outline-none focus:ring-2 focus:ring-cafe-roast focus:border-cafe-roast transition-all duration-150 ${inputClasses}`}
+        className={`w-full h-10 pl-10 pr-9 border rounded-cafe text-sm leading-none focus:outline-none focus:ring-2 focus:ring-cafe-roast focus:border-cafe-roast transition-all duration-150 ${inputClasses}`}
         aria-label={placeholder}
       />
       {localValue && (
