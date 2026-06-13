@@ -1,14 +1,14 @@
 const variants = {
-  primary: 'bg-primary-600 text-white hover:bg-primary-700 focus:ring-primary-500 shadow-sm',
-  secondary: 'bg-surface-200 text-surface-800 hover:bg-surface-300 focus:ring-surface-400',
-  danger: 'bg-danger-600 text-white hover:bg-danger-700 focus:ring-danger-500 shadow-sm',
-  ghost: 'bg-transparent text-surface-700 hover:bg-surface-100 focus:ring-surface-400',
-  success: 'bg-success-600 text-white hover:bg-success-700 focus:ring-success-500 shadow-sm',
+  primary: 'bg-cafe-roast text-cafe-foam hover:bg-cafe-espresso focus:ring-cafe-roast shadow-cafe hover:shadow-cafe-lg',
+  secondary: 'bg-cafe-crema text-cafe-espresso hover:bg-cafe-crema/80 focus:ring-cafe-roast',
+  danger: 'bg-status-danger text-cafe-foam hover:bg-status-danger/90 focus:ring-status-danger shadow-cafe',
+  ghost: 'bg-transparent text-cafe-roast hover:bg-cafe-crema/30 focus:ring-cafe-roast',
+  success: 'bg-status-success text-cafe-foam hover:bg-status-success/90 focus:ring-status-success shadow-cafe',
 };
 const sizes = {
-  sm: 'px-3 py-1.5 text-xs rounded-lg',
-  md: 'px-4 py-2.5 text-sm rounded-xl',
-  lg: 'px-6 py-3 text-base rounded-xl',
+  sm: 'px-3 py-1.5 text-xs rounded-cafe',
+  md: 'px-4 py-2.5 text-sm rounded-cafe',
+  lg: 'px-6 py-3 text-base rounded-cafe',
 };
 export default function Button({
   children,
@@ -27,9 +27,9 @@ export default function Button({
       disabled={disabled || loading}
       onClick={onClick}
       className={`
-        inline-flex items-center justify-center gap-2 font-semibold transition-all duration-200
-        focus:outline-none focus:ring-2 focus:ring-offset-2
-        disabled:opacity-50 disabled:cursor-not-allowed
+        inline-flex items-center justify-center gap-2 font-semibold transition-all duration-150
+        focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-cafe-foam
+        disabled:bg-cafe-crema/40 disabled:text-cafe-grounds/40 disabled:cursor-not-allowed disabled:shadow-none
         active:scale-[0.98]
         ${variants[variant] || variants.primary}
         ${sizes[size] || sizes.md}

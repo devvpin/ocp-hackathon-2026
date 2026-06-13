@@ -8,12 +8,12 @@ export default function ColorPicker({ value = '#3B82F6', onChange, label }) {
   const [showPicker, setShowPicker] = useState(false);
   return (
     <div className="space-y-2">
-      {label && <label className="block text-sm font-medium text-surface-700">{label}</label>}
+      {label && <label className="block text-sm font-medium text-cafe-grounds">{label}</label>}
       <div className="flex items-center gap-3">
         <button
           type="button"
           onClick={() => setShowPicker(!showPicker)}
-          className="w-10 h-10 rounded-xl border-2 border-surface-300 shadow-sm cursor-pointer hover:scale-105 transition-transform"
+          className="w-10 h-10 rounded-cafe border-2 border-cafe-crema shadow-cafe cursor-pointer hover:scale-105 transition-transform duration-150"
           style={{ backgroundColor: value }}
           aria-label="Pick a color"
         />
@@ -22,12 +22,12 @@ export default function ColorPicker({ value = '#3B82F6', onChange, label }) {
           value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder="#000000"
-          className="w-28 px-3 py-2 bg-surface-50 border border-surface-200 rounded-xl text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary-500"
+          className="w-28 px-3 py-2 bg-white border border-cafe-crema rounded-cafe text-sm font-mono focus:outline-none focus:ring-2 focus:ring-cafe-roast"
           aria-label="Color hex value"
         />
       </div>
       {showPicker && (
-        <div className="flex flex-wrap gap-2 p-3 bg-surface-50 rounded-xl border border-surface-200 animate-slide-down">
+        <div className="flex flex-wrap gap-2 p-3 bg-cafe-foam rounded-cafe border border-cafe-crema/40 animate-slide-down">
           {presetColors.map((color) => (
             <button
               key={color}
@@ -36,7 +36,7 @@ export default function ColorPicker({ value = '#3B82F6', onChange, label }) {
                 onChange(color);
                 setShowPicker(false);
               }}
-              className={`w-7 h-7 rounded-lg cursor-pointer hover:scale-110 transition-transform ${value === color ? 'ring-2 ring-offset-2 ring-primary-500' : 'border border-surface-200'}`}
+              className={`w-7 h-7 rounded-cafe cursor-pointer hover:scale-110 transition-transform duration-150 ${value === color ? 'ring-2 ring-offset-2 ring-cafe-roast' : 'border border-cafe-crema/40'}`}
               style={{ backgroundColor: color }}
               aria-label={`Select color ${color}`}
             />

@@ -88,7 +88,7 @@ export default function UsersPage() {
     <div className="space-y-6 animate-fade-in">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-surface-900">Users & Employees</h1>
+          <h1 className="font-display text-2xl font-semibold text-cafe-espresso">Users & Employees</h1>
           <p className="text-sm text-surface-500 mt-1">Manage team members and access</p>
         </div>
         <Button onClick={() => { setForm({ name: '', email: '', password: '', role: 'employee' }); setModalOpen(true); }}>+ Add User</Button>

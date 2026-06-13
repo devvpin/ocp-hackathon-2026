@@ -56,7 +56,7 @@ export default function ReportsPage() {
   if (loading) {
     return (
       <div className="space-y-6 animate-fade-in">
-        <h1 className="text-2xl font-bold text-surface-900">Reports</h1>
+        <h1 className="font-display text-2xl font-semibold text-cafe-espresso">Reports</h1>
         <div className="grid grid-cols-3 gap-4"><Skeleton height={100} count={3} /></div>
         <Skeleton height={300} />
       </div>
@@ -66,8 +66,8 @@ export default function ReportsPage() {
     <div className="space-y-6 animate-fade-in" ref={reportRef}>
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-surface-900">Reports & Analytics</h1>
-          <p className="text-sm text-surface-500 mt-1">Track your cafe's performance</p>
+          <h1 className="font-display text-2xl font-semibold text-cafe-espresso">Reports & Analytics</h1>
+          <p className="text-sm font-sans text-cafe-grounds/70 mt-1">Track your cafe's performance</p>
         </div>
         <div className="flex gap-2">
           <Button variant="secondary" size="sm" onClick={handleExportPDF}>Export PDF</Button>
@@ -75,7 +75,7 @@ export default function ReportsPage() {
         </div>
       </div>
       {/* Filter Bar */}
-      <div className="sticky top-0 z-10 bg-surface-50 py-3 -mx-6 px-6">
+      <div className="sticky top-0 z-10 bg-cafe-foam py-3 -mx-6 px-6">
         <div className="flex gap-2 flex-wrap">
           {[
             { val: 'today', label: 'Today' },
@@ -85,7 +85,7 @@ export default function ReportsPage() {
             <button
               key={p.val}
               onClick={() => setPeriod(p.val)}
-              className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${period === p.val ? 'bg-primary-600 text-white shadow-md' : 'bg-white text-surface-600 border border-surface-200 hover:bg-surface-50'}`}
+              className={`px-4 py-2 rounded-cafe text-sm font-sans font-medium transition-all duration-150 ${period === p.val ? 'bg-cafe-roast text-cafe-foam shadow-cafe' : 'bg-white text-cafe-grounds border border-cafe-crema/30 hover:bg-cafe-foam'}`}
             >
               {p.label}
             </button>
@@ -94,43 +94,43 @@ export default function ReportsPage() {
       </div>
       {/* Metric Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-white rounded-2xl border border-surface-200 p-5">
-          <p className="text-xs text-surface-500 font-medium mb-1">Total Orders</p>
-          <p className="text-3xl font-extrabold text-surface-900">{data?.totalOrders || 0}</p>
+        <div className="bg-white rounded-cafe border border-cafe-crema/30 p-5 shadow-cafe border-t-4 border-t-cafe-roast">
+          <p className="text-xs font-sans text-cafe-grounds/70 font-medium mb-1 uppercase tracking-wide">Total Orders</p>
+          <p className="text-3xl font-semibold tabular-nums text-cafe-grounds">{data?.totalOrders || 0}</p>
         </div>
-        <div className="bg-white rounded-2xl border border-surface-200 p-5">
-          <p className="text-xs text-surface-500 font-medium mb-1">Revenue</p>
-          <p className="text-3xl font-extrabold text-success-600">{formatCurrency(data?.revenue)}</p>
+        <div className="bg-white rounded-cafe border border-cafe-crema/30 p-5 shadow-cafe border-t-4 border-t-status-success">
+          <p className="text-xs font-sans text-cafe-grounds/70 font-medium mb-1 uppercase tracking-wide">Revenue</p>
+          <p className="text-3xl font-semibold tabular-nums text-status-success">{formatCurrency(data?.revenue)}</p>
         </div>
-        <div className="bg-white rounded-2xl border border-surface-200 p-5">
-          <p className="text-xs text-surface-500 font-medium mb-1">Avg Order Value</p>
-          <p className="text-3xl font-extrabold text-primary-600">{formatCurrency(data?.averageOrderValue)}</p>
+        <div className="bg-white rounded-cafe border border-cafe-crema/30 p-5 shadow-cafe border-t-4 border-t-cafe-espresso">
+          <p className="text-xs font-sans text-cafe-grounds/70 font-medium mb-1 uppercase tracking-wide">Avg Order Value</p>
+          <p className="text-3xl font-semibold tabular-nums text-cafe-espresso">{formatCurrency(data?.averageOrderValue)}</p>
         </div>
       </div>
       {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Sales Trend */}
-        <div className="bg-white rounded-2xl border border-surface-200 p-5">
+        <div className="bg-white rounded-cafe border border-cafe-crema/30 p-5 shadow-cafe">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-sm font-bold text-surface-900">Sales Trend</h3>
-            <div className="flex gap-1 bg-surface-100 p-0.5 rounded-lg">
-              <button onClick={() => setChartMode('revenue')} className={`px-3 py-1 rounded-md text-xs font-medium ${chartMode === 'revenue' ? 'bg-white shadow text-surface-800' : 'text-surface-500'}`}>Revenue</button>
-              <button onClick={() => setChartMode('orders')} className={`px-3 py-1 rounded-md text-xs font-medium ${chartMode === 'orders' ? 'bg-white shadow text-surface-800' : 'text-surface-500'}`}>Orders</button>
+            <h3 className="text-sm font-display font-semibold text-cafe-espresso">Sales Trend</h3>
+            <div className="flex gap-1 bg-cafe-foam p-0.5 rounded-cafe">
+              <button onClick={() => setChartMode('revenue')} className={`px-3 py-1 rounded-cafe text-xs font-sans font-medium ${chartMode === 'revenue' ? 'bg-white shadow-cafe text-cafe-grounds' : 'text-cafe-grounds/60'}`}>Revenue</button>
+              <button onClick={() => setChartMode('orders')} className={`px-3 py-1 rounded-cafe text-xs font-sans font-medium ${chartMode === 'orders' ? 'bg-white shadow-cafe text-cafe-grounds' : 'text-cafe-grounds/60'}`}>Orders</button>
             </div>
           </div>
           <ResponsiveContainer width="100%" height={250}>
             <LineChart data={data?.salesTrend || []}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-              <XAxis dataKey="date" tick={{ fontSize: 12, fill: '#64748b' }} />
-              <YAxis tick={{ fontSize: 12, fill: '#64748b' }} />
-              <Tooltip contentStyle={{ borderRadius: 12, border: '1px solid #e2e8f0', boxShadow: '0 4px 6px -1px rgba(0,0,0,.1)' }} />
-              <Line type="monotone" dataKey={chartMode} stroke="#3B82F6" strokeWidth={2.5} dot={{ fill: '#3B82F6', r: 4 }} activeDot={{ r: 6 }} />
+              <CartesianGrid strokeDasharray="3 3" stroke="#e8d3b0" />
+              <XAxis dataKey="date" tick={{ fontSize: 12, fill: '#8a6f52' }} />
+              <YAxis tick={{ fontSize: 12, fill: '#8a6f52' }} />
+              <Tooltip contentStyle={{ borderRadius: 10, border: '1px solid #e8d3b0', boxShadow: '0 4px 14px rgba(52, 17, 0, 0.12)', backgroundColor: '#fff7e8' }} />
+              <Line type="monotone" dataKey={chartMode} stroke="#7f5e35" strokeWidth={2.5} dot={{ fill: '#7f5e35', r: 4 }} activeDot={{ r: 6 }} />
             </LineChart>
           </ResponsiveContainer>
         </div>
         {/* Top Categories Pie */}
-        <div className="bg-white rounded-2xl border border-surface-200 p-5">
-          <h3 className="text-sm font-bold text-surface-900 mb-4">Top Categories</h3>
+        <div className="bg-white rounded-cafe border border-cafe-crema/30 p-5 shadow-cafe">
+          <h3 className="text-sm font-display font-semibold text-cafe-espresso mb-4">Top Categories</h3>
           <ResponsiveContainer width="100%" height={250}>
             <PieChart>
               <Pie data={data?.topCategories || []} cx="50%" cy="50%" outerRadius={90} innerRadius={50} dataKey="revenue" nameKey="name" paddingAngle={3}>
@@ -138,36 +138,36 @@ export default function ReportsPage() {
                   <Cell key={index} fill={entry.color} />
                 ))}
               </Pie>
-              <Tooltip formatter={(val) => formatCurrency(val)} contentStyle={{ borderRadius: 12, border: '1px solid #e2e8f0' }} />
-              <Legend verticalAlign="bottom" height={36} iconType="circle" formatter={(val) => <span className="text-xs text-surface-600">{val}</span>} />
+              <Tooltip formatter={(val) => formatCurrency(val)} contentStyle={{ borderRadius: 10, border: '1px solid #e8d3b0', backgroundColor: '#fff7e8' }} />
+              <Legend verticalAlign="bottom" height={36} iconType="circle" formatter={(val) => <span className="text-xs text-cafe-grounds font-sans">{val}</span>} />
             </PieChart>
           </ResponsiveContainer>
         </div>
       </div>
       {/* Tables */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white rounded-2xl border border-surface-200 overflow-hidden">
-          <div className="px-5 py-4 border-b border-surface-200">
-            <h3 className="text-sm font-bold text-surface-900">Top Products</h3>
+        <div className="bg-white rounded-cafe border border-cafe-crema/30 overflow-hidden shadow-cafe">
+          <div className="px-5 py-4 border-b border-cafe-crema/30">
+            <h3 className="text-sm font-display font-semibold text-cafe-espresso">Top Products</h3>
           </div>
           <table className="w-full">
-            <thead><tr className="bg-surface-50 text-left"><th className="px-5 py-2.5 text-xs font-bold text-surface-500 uppercase">Name</th><th className="px-5 py-2.5 text-xs font-bold text-surface-500 uppercase">Qty Sold</th><th className="px-5 py-2.5 text-xs font-bold text-surface-500 uppercase">Revenue</th></tr></thead>
-            <tbody className="divide-y divide-surface-100">
+            <thead><tr className="bg-cafe-crema/30 text-left"><th className="px-5 py-2.5 text-xs font-display font-semibold text-cafe-grounds uppercase tracking-wide">Name</th><th className="px-5 py-2.5 text-xs font-display font-semibold text-cafe-grounds uppercase tracking-wide">Qty Sold</th><th className="px-5 py-2.5 text-xs font-display font-semibold text-cafe-grounds uppercase tracking-wide">Revenue</th></tr></thead>
+            <tbody className="divide-y divide-cafe-crema/30">
               {(data?.topProducts || []).map((p, i) => (
-                <tr key={i} className="hover:bg-surface-50"><td className="px-5 py-3 text-sm text-surface-700">{p.name}</td><td className="px-5 py-3 text-sm text-surface-700">{p.qtySold}</td><td className="px-5 py-3 text-sm font-medium text-surface-800">{formatCurrency(p.revenue)}</td></tr>
+                <tr key={i} className="hover:bg-cafe-foam"><td className="px-5 py-3 text-sm font-sans text-cafe-grounds">{p.name}</td><td className="px-5 py-3 text-sm font-sans text-cafe-grounds tabular-nums">{p.qtySold}</td><td className="px-5 py-3 text-sm font-sans font-medium text-cafe-espresso tabular-nums">{formatCurrency(p.revenue)}</td></tr>
               ))}
             </tbody>
           </table>
         </div>
-        <div className="bg-white rounded-2xl border border-surface-200 overflow-hidden">
-          <div className="px-5 py-4 border-b border-surface-200">
-            <h3 className="text-sm font-bold text-surface-900">Top Orders</h3>
+        <div className="bg-white rounded-cafe border border-cafe-crema/30 overflow-hidden shadow-cafe">
+          <div className="px-5 py-4 border-b border-cafe-crema/30">
+            <h3 className="text-sm font-display font-semibold text-cafe-espresso">Top Orders</h3>
           </div>
           <table className="w-full">
-            <thead><tr className="bg-surface-50 text-left"><th className="px-5 py-2.5 text-xs font-bold text-surface-500 uppercase">Order #</th><th className="px-5 py-2.5 text-xs font-bold text-surface-500 uppercase">Date</th><th className="px-5 py-2.5 text-xs font-bold text-surface-500 uppercase">Customer</th><th className="px-5 py-2.5 text-xs font-bold text-surface-500 uppercase">Amount</th></tr></thead>
-            <tbody className="divide-y divide-surface-100">
+            <thead><tr className="bg-cafe-crema/30 text-left"><th className="px-5 py-2.5 text-xs font-display font-semibold text-cafe-grounds uppercase tracking-wide">Order #</th><th className="px-5 py-2.5 text-xs font-display font-semibold text-cafe-grounds uppercase tracking-wide">Date</th><th className="px-5 py-2.5 text-xs font-display font-semibold text-cafe-grounds uppercase tracking-wide">Customer</th><th className="px-5 py-2.5 text-xs font-display font-semibold text-cafe-grounds uppercase tracking-wide">Amount</th></tr></thead>
+            <tbody className="divide-y divide-cafe-crema/30">
               {(data?.topOrders || []).map((o, i) => (
-                <tr key={i} className="hover:bg-surface-50"><td className="px-5 py-3 text-sm font-mono text-primary-600">#{o.orderNumber}</td><td className="px-5 py-3 text-sm text-surface-700">{o.date}</td><td className="px-5 py-3 text-sm text-surface-700">{o.customer}</td><td className="px-5 py-3 text-sm font-medium text-surface-800">{formatCurrency(o.amount)}</td></tr>
+                <tr key={i} className="hover:bg-cafe-foam"><td className="px-5 py-3 text-sm font-mono text-cafe-roast">#{o.orderNumber}</td><td className="px-5 py-3 text-sm font-sans text-cafe-grounds">{o.date}</td><td className="px-5 py-3 text-sm font-sans text-cafe-grounds">{o.customer}</td><td className="px-5 py-3 text-sm font-sans font-medium text-cafe-espresso tabular-nums">{formatCurrency(o.amount)}</td></tr>
               ))}
             </tbody>
           </table>

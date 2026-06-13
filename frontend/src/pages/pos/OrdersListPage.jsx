@@ -51,7 +51,7 @@ export default function OrdersListPage() {
     return matchesStatus && matchesSearch;
   });
 
-  const statusColors = { draft: '#F59E0B', paid: '#22C55E', cancelled: '#EF4444' };
+  const statusColors = { draft: '#cfab71', paid: '#5b7b4a', cancelled: '#a13e2b' };
   const statusTabs = [
     { key: 'all', label: 'All', count: stats.total },
     { key: 'draft', label: 'Draft', count: stats.draft },
@@ -96,34 +96,34 @@ export default function OrdersListPage() {
     <div className="p-6 space-y-5 animate-fade-in overflow-auto h-full">
       {/* Page Header */}
       <div className="flex items-center gap-3">
-        <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-600/20">
-          <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <div className="w-10 h-10 bg-cafe-roast rounded-cafe flex items-center justify-center shadow-cafe">
+          <svg className="w-5 h-5 text-cafe-foam" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
           </svg>
         </div>
         <div>
-          <h1 className="text-xl font-bold text-surface-900">Order Management</h1>
-          <p className="text-xs text-surface-500">View, manage, and track all orders</p>
+          <h1 className="font-display text-xl font-semibold text-cafe-espresso">Order Management</h1>
+          <p className="text-xs font-sans text-cafe-grounds/70">View, manage, and track all orders</p>
         </div>
       </div>
 
       {/* Stats Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <div className="bg-white rounded-xl border border-surface-200 p-3.5">
-          <p className="text-[10px] font-bold text-surface-400 uppercase tracking-wider mb-0.5">Total Orders</p>
-          <p className="text-2xl font-extrabold text-surface-800">{stats.total}</p>
+        <div className="bg-white rounded-cafe border border-cafe-crema/30 p-3.5 shadow-cafe">
+          <p className="text-[10px] font-sans font-bold text-cafe-grounds/60 uppercase tracking-wide mb-0.5">Total Orders</p>
+          <p className="text-2xl font-semibold tabular-nums text-cafe-grounds">{stats.total}</p>
         </div>
-        <div className="bg-gradient-to-br from-warning-50 to-amber-50 rounded-xl border border-warning-200 p-3.5">
-          <p className="text-[10px] font-bold text-warning-600 uppercase tracking-wider mb-0.5">Draft</p>
-          <p className="text-2xl font-extrabold text-warning-700">{stats.draft}</p>
+        <div className="bg-white rounded-cafe border border-cafe-crema/30 p-3.5 shadow-cafe">
+          <p className="text-[10px] font-sans font-bold text-cafe-espresso uppercase tracking-wide mb-0.5">Draft</p>
+          <p className="text-2xl font-semibold tabular-nums text-cafe-espresso">{stats.draft}</p>
         </div>
-        <div className="bg-gradient-to-br from-success-50 to-emerald-50 rounded-xl border border-success-200 p-3.5">
-          <p className="text-[10px] font-bold text-success-600 uppercase tracking-wider mb-0.5">Paid</p>
-          <p className="text-2xl font-extrabold text-success-700">{stats.paid}</p>
+        <div className="bg-white rounded-cafe border border-cafe-crema/30 p-3.5 shadow-cafe">
+          <p className="text-[10px] font-sans font-bold text-status-success uppercase tracking-wide mb-0.5">Paid</p>
+          <p className="text-2xl font-semibold tabular-nums text-status-success">{stats.paid}</p>
         </div>
-        <div className="bg-gradient-to-br from-indigo-50 to-purple-50 rounded-xl border border-indigo-200 p-3.5">
-          <p className="text-[10px] font-bold text-indigo-600 uppercase tracking-wider mb-0.5">Revenue</p>
-          <p className="text-xl font-extrabold text-indigo-700">{formatCurrency(stats.revenue)}</p>
+        <div className="bg-white rounded-cafe border border-cafe-crema/30 p-3.5 shadow-cafe">
+          <p className="text-[10px] font-sans font-bold text-cafe-roast uppercase tracking-wide mb-0.5">Revenue</p>
+          <p className="text-xl font-semibold tabular-nums text-cafe-roast">{formatCurrency(stats.revenue)}</p>
         </div>
       </div>
 
@@ -133,14 +133,14 @@ export default function OrdersListPage() {
           <button
             key={tab.key}
             onClick={() => setStatusFilter(tab.key)}
-            className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all ${
+            className={`px-4 py-2 rounded-cafe text-xs font-sans font-medium uppercase tracking-wide transition-all duration-150 ${
               statusFilter === tab.key
-                ? 'bg-surface-800 text-white shadow-md'
-                : 'bg-white text-surface-600 border border-surface-200 hover:bg-surface-50'
+                ? 'bg-cafe-roast text-cafe-foam shadow-cafe'
+                : 'bg-white text-cafe-grounds border border-cafe-crema/30 hover:bg-cafe-foam'
             }`}
           >
             {tab.label}
-            <span className={`ml-1.5 text-xs ${statusFilter === tab.key ? 'text-surface-300' : 'text-surface-400'}`}>
+            <span className={`ml-1.5 text-xs ${statusFilter === tab.key ? 'text-cafe-foam/70' : 'text-cafe-grounds/50'}`}>
               {tab.count}
             </span>
           </button>

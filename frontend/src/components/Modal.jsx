@@ -54,17 +54,17 @@ export default function Modal({ isOpen, onClose, title, children, size = 'md', c
       aria-modal="true"
       aria-label={title}
     >
-      <div className="fixed inset-0 bg-black/50 backdrop-blur-sm animate-fade-in" />
+      <div className="fixed inset-0 bg-cafe-noir/50 backdrop-blur-sm animate-fade-in" />
       <div
         ref={contentRef}
-        className={`relative bg-white rounded-2xl shadow-2xl w-full ${sizeClasses[size] || sizeClasses.md} max-h-[90vh] flex flex-col animate-scale-in ${className}`}
+        className={`relative bg-white rounded-cafe shadow-cafe-lg border border-cafe-crema/40 w-full ${sizeClasses[size] || sizeClasses.md} max-h-[90vh] flex flex-col animate-scale-in ${className}`}
       >
         {title && (
-          <div className="flex items-center justify-between px-6 py-4 border-b border-surface-200">
-            <h2 className="text-lg font-bold text-surface-900">{title}</h2>
+          <div className="flex items-center justify-between px-6 py-4 border-b border-cafe-crema/40">
+            <h2 className="font-display text-xl font-semibold text-cafe-espresso">{title}</h2>
             <button
               onClick={onClose}
-              className="p-2 rounded-xl hover:bg-surface-100 transition-colors text-surface-500 hover:text-surface-700"
+              className="p-2 rounded-cafe hover:bg-cafe-crema/30 transition-colors text-cafe-grounds/70 hover:text-cafe-grounds"
               aria-label="Close dialog"
             >
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">

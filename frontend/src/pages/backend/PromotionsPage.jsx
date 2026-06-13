@@ -151,7 +151,7 @@ export default function PromotionsPage() {
     <div className="space-y-6 animate-fade-in">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-surface-900">Coupons & Promotions</h1>
+          <h1 className="font-display text-2xl font-semibold text-cafe-espresso">Coupons & Promotions</h1>
           <p className="text-sm text-surface-500 mt-1">Manage discount codes and automated promotions</p>
         </div>
         <Button onClick={tab === 'coupons' ? openCreateCoupon : openCreatePromo}>+ Create</Button>

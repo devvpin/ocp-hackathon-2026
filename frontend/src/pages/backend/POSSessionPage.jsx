@@ -31,7 +31,7 @@ export default function POSSessionPage() {
     if (loading) {
         return (
             <div className="space-y-6 animate-fade-in">
-                <h1 className="text-2xl font-bold text-surface-900">POS Session</h1>
+                <h1 className="font-display text-2xl font-semibold text-cafe-espresso">POS Session</h1>
                 <Skeleton variant="rect" height={200} />
             </div>
         );
@@ -39,7 +39,7 @@ export default function POSSessionPage() {
     return (
         <div className="space-y-6 animate-fade-in">
             <div>
-                <h1 className="text-2xl font-bold text-surface-900">POS Session</h1>
+                <h1 className="font-display text-2xl font-semibold text-cafe-espresso">POS Session</h1>
                 <p className="text-sm text-surface-500 mt-1">Manage your point-of-sale session</p>
             </div>
             <div className="bg-white rounded-2xl border border-surface-200 p-6">

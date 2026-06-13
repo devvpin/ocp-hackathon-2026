@@ -12,6 +12,8 @@ import Modal from '../../components/Modal';
 import QRCode from '../../components/QRCode';
 import Badge from '../../components/Badge';
 import Skeleton from '../../components/Skeleton';
+import Logo from '../../components/Logo';
+import { CAFE_NAME } from '../../config/brand';
 export default function OrderPage() {
   const { tableId } = useParams();
   const [searchParams] = useSearchParams();
@@ -269,13 +271,13 @@ export default function OrderPage() {
   return (
     <div className="flex h-[calc(100vh-64px)] overflow-hidden">
       {/* LEFT - Product Grid */}
-      <div className="flex-1 flex flex-col overflow-hidden border-r border-surface-200">
+      <div className="flex-1 flex flex-col overflow-hidden border-r border-cafe-crema/30">
         {/* Category Tabs */}
-        <div className="flex gap-2 p-3 overflow-x-auto flex-shrink-0 bg-white border-b border-surface-200">
+        <div className="flex gap-2 p-3 overflow-x-auto flex-shrink-0 bg-white border-b border-cafe-crema/30">
           <button
             onClick={() => setActiveCategory('all')}
-            className={`px-4 py-2 rounded-xl text-sm font-semibold whitespace-nowrap transition-all ${
-              activeCategory === 'all' ? 'bg-surface-800 text-white shadow' : 'bg-surface-100 text-surface-600 hover:bg-surface-200'
+            className={`px-4 py-2 rounded-cafe text-sm font-display font-semibold whitespace-nowrap transition-all duration-150 ${
+              activeCategory === 'all' ? 'bg-cafe-roast text-cafe-foam shadow-cafe' : 'bg-cafe-foam text-cafe-grounds hover:bg-cafe-crema/30'
             }`}
           >
             All
@@ -303,7 +305,7 @@ export default function OrderPage() {
             value={productSearch}
             onChange={(e) => setProductSearch(e.target.value)}
             placeholder="Search products..."
-            className="w-full px-4 py-2.5 rounded-xl bg-surface-100 border border-surface-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+            className="w-full px-4 py-2.5 rounded-cafe bg-white border border-cafe-crema text-sm font-sans focus:outline-none focus:ring-2 focus:ring-cafe-roast"
           />
         </div>
         {/* Product Cards */}
@@ -313,7 +315,7 @@ export default function OrderPage() {
               <button
                 key={product.id}
                 onClick={() => addItem(product)}
-                className="bg-white rounded-2xl border border-surface-200 p-4 text-left hover:shadow-lg hover:border-primary-300 transition-all active:scale-[0.97] group"
+                className="bg-white rounded-cafe border border-cafe-crema/30 p-4 text-left hover:shadow-cafe-lg hover:border-cafe-crema transition-all duration-150 active:scale-[0.97] group shadow-cafe"
               >
                 <div
                   className="w-full h-20 rounded-xl mb-3 flex items-center justify-center text-2xl opacity-70 group-hover:opacity-100 transition-opacity"
@@ -321,9 +323,9 @@ export default function OrderPage() {
                 >
                   ☕
                 </div>
-                <h3 className="text-sm font-bold text-surface-900 mb-1 truncate">{product.name}</h3>
+                <h3 className="text-sm font-sans font-medium text-cafe-grounds mb-1 truncate">{product.name}</h3>
                 <div className="flex items-center justify-between">
-                  <span className="text-base font-extrabold text-primary-600">{formatCurrency(product.price)}</span>
+                  <span className="text-base font-sans font-semibold tabular-nums text-cafe-espresso">{formatCurrency(product.price)}</span>
                   <Badge color={getCategoryColor(product.categoryId)} className="text-[10px]">
                     {getCategoryName(product.categoryId)}
                   </Badge>
@@ -339,14 +341,14 @@ export default function OrderPage() {
         </div>
       </div>
       {/* CENTER - Cart */}
-      <div className="w-80 flex flex-col bg-white border-r border-surface-200 flex-shrink-0">
-        <div className="p-3 border-b border-surface-200">
+      <div className="w-80 flex flex-col bg-white border-r border-cafe-crema/30 flex-shrink-0">
+        <div className="p-3 border-b border-cafe-crema/30">
           <div className="flex justify-between items-center mb-1">
-            <h2 className="text-sm font-bold text-surface-900 flex items-center gap-1">
+            <h2 className="text-sm font-sans font-bold text-cafe-grounds flex items-center gap-1">
               Cart 
               {tableNumber ? (
                 <>
-                  <span className="text-primary-600">· Table {tableNumber}</span>
+                  <span className="text-cafe-roast uppercase text-xs tracking-wide">· Table {tableNumber}</span>
                   <button onClick={() => navigate('/pos/tables')} className="ml-1 text-surface-400 hover:text-primary-600 transition-colors" title="Back to Floor Plan">
                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M3 14h18m-9-4v8m-7 0h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
@@ -379,7 +381,7 @@ export default function OrderPage() {
             </div>
           ) : (
             totals.items.map((item) => (
-              <div key={item.productId} className="bg-surface-50 rounded-xl p-3 animate-slide-up relative group border border-transparent hover:border-surface-200 transition-colors">
+              <div key={item.productId} className="rounded-cafe p-3 animate-slide-up relative group border-b border-cafe-crema/30 last:border-0">
                 <div className="flex items-start justify-between mb-2">
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-semibold text-surface-800 truncate">{item.name}</p>
@@ -399,13 +401,13 @@ export default function OrderPage() {
                   <div className="flex items-center gap-2">
                     <button
                       onClick={() => updateQuantity(item.productId, item.quantity - 1)}
-                      className="w-8 h-8 rounded-lg bg-white border border-surface-200 flex items-center justify-center text-surface-600 hover:bg-surface-100 transition-colors active:scale-95"
+                      className="w-8 h-8 rounded-full bg-cafe-crema/40 hover:bg-cafe-crema flex items-center justify-center text-cafe-espresso transition-all duration-150 active:scale-95 min-w-[44px] min-h-[44px]"
                       aria-label="Decrease quantity"
                     >−</button>
-                    <span className="text-sm font-bold text-surface-800 w-6 text-center">{item.quantity}</span>
+                    <span className="text-sm font-sans font-semibold tabular-nums text-cafe-grounds w-6 text-center">{item.quantity}</span>
                     <button
                       onClick={() => updateQuantity(item.productId, item.quantity + 1)}
-                      className="w-8 h-8 rounded-lg bg-white border border-surface-200 flex items-center justify-center text-surface-600 hover:bg-surface-100 transition-colors active:scale-95"
+                      className="w-8 h-8 rounded-full bg-cafe-crema/40 hover:bg-cafe-crema flex items-center justify-center text-cafe-espresso transition-all duration-150 active:scale-95 min-w-[44px] min-h-[44px]"
                       aria-label="Increase quantity"
                     >+</button>
                   </div>
@@ -421,7 +423,7 @@ export default function OrderPage() {
           )}
         </div>
         {/* Cart Totals & Discounts */}
-        <div className="flex-shrink-0 bg-surface-50 border-t border-surface-200 p-3 space-y-2">
+        <div className="flex-shrink-0 bg-cafe-foam border-t border-cafe-crema/30 p-3 space-y-2">
           {totals.orderDiscount > 0 && (
             <div className="bg-success-50 rounded-xl p-3 border border-success-200">
               <div className="flex items-center justify-between">
@@ -443,19 +445,19 @@ export default function OrderPage() {
           )}
         </div>
         {/* Order Summary */}
-        <div className="border-t border-surface-200 p-3 space-y-1.5">
-          <div className="flex justify-between text-xs text-surface-500">
+        <div className="border-t border-cafe-crema/30 p-3 space-y-1.5 bg-cafe-foam">
+          <div className="flex justify-between text-xs font-sans text-cafe-grounds/70 tabular-nums">
             <span>Subtotal</span><span>{formatCurrency(totals.subtotal)}</span>
           </div>
-          <div className="flex justify-between text-xs text-surface-500">
+          <div className="flex justify-between text-xs font-sans text-cafe-grounds/70 tabular-nums">
             <span>Tax</span><span>{formatCurrency(totals.taxTotal)}</span>
           </div>
           {totals.totalDiscount > 0 && (
-            <div className="flex justify-between text-xs text-success-600">
+            <div className="flex justify-between text-xs font-sans text-status-success tabular-nums">
               <span>Discount</span><span>-{formatCurrency(totals.totalDiscount)}</span>
             </div>
           )}
-          <div className="flex justify-between text-base font-extrabold text-surface-900 pt-1 border-t border-surface-200">
+          <div className="flex justify-between font-display text-xl font-bold text-cafe-espresso pt-1 border-t border-dashed border-cafe-crema tabular-nums">
             <span>Total</span><span>{formatCurrency(totals.total)}</span>
           </div>
         </div>
@@ -476,19 +478,19 @@ export default function OrderPage() {
         </div>
       </div>
       {/* RIGHT - Payment Panel */}
-      <div className="w-72 flex flex-col bg-surface-50 flex-shrink-0">
-        <div className="p-3 border-b border-surface-200 bg-white">
-          <h2 className="text-sm font-bold text-surface-900">Payment</h2>
+      <div className="w-72 flex flex-col bg-cafe-foam flex-shrink-0">
+        <div className="p-3 border-b border-cafe-crema/30 bg-white">
+          <h2 className="text-sm font-sans font-bold text-cafe-grounds">Payment</h2>
         </div>
         <div className="flex-1 p-3 space-y-3 overflow-auto">
           {paymentMethods.map((method) => (
             <button
               key={method.id}
               onClick={() => setSelectedPayment(method.type)}
-              className={`w-full p-4 rounded-2xl border-2 text-left transition-all ${
+              className={`w-full p-4 rounded-cafe border-2 text-left transition-all duration-150 min-h-[44px] ${
                 selectedPayment === method.type
-                  ? 'border-primary-500 bg-primary-50 shadow-md'
-                  : 'border-surface-200 bg-white hover:border-surface-300'
+                  ? 'border-cafe-roast bg-cafe-roast/5 shadow-cafe'
+                  : 'border-cafe-crema bg-white hover:border-cafe-roast/50'
               }`}
             >
               <p className="text-sm font-bold text-surface-900">{method.name}</p>
@@ -528,6 +530,7 @@ export default function OrderPage() {
                 <QRCode
                   value={`upi://pay?pa=${upiMethod.upiId || 'cafe@ybl'}&pn=OdooCafe&am=${totals.total}&cu=INR`}
                   size={160}
+                  showCaption={false}
                 />
               </div>
               <p className="text-center text-sm font-bold text-surface-700">{formatCurrency(totals.total)}</p>
@@ -547,9 +550,9 @@ export default function OrderPage() {
             </div>
           )}
         </div>
-        <div className="p-3 border-t border-surface-200 bg-white">
+        <div className="p-3 border-t border-cafe-crema/30 bg-white">
           <Button
-            className="w-full"
+            className="w-full text-lg shadow-cafe-lg"
             size="lg"
             onClick={handleCompletePayment}
             loading={paymentLoading}
@@ -624,42 +627,38 @@ export default function OrderPage() {
       </Modal>
       {/* Receipt Modal (post-payment) */}
       <Modal isOpen={receiptModalOpen} onClose={() => {}} title="" size="sm">
-        <div className="print-area">
-          <div className="text-center mb-4">
-            <div className="w-12 h-12 bg-success-100 rounded-full flex items-center justify-center mx-auto mb-3">
-              <svg className="w-6 h-6 text-success-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-              </svg>
-            </div>
-            <h2 className="text-lg font-bold text-surface-900">Payment Successful</h2>
-            <p className="text-sm text-surface-500">Order #{completedOrder?.id}</p>
+        <div className="print-area font-sans">
+          <div className="text-center mb-4 pb-4 border-b border-dashed border-cafe-crema">
+            <Logo className="h-14 mx-auto mb-2" alt={`${CAFE_NAME} logo`} />
+            <h2 className="font-display text-lg font-semibold text-cafe-espresso">{CAFE_NAME}</h2>
+            <p className="text-xs text-cafe-grounds/60 mt-1">Order #{completedOrder?.orderNumber || completedOrder?.id}</p>
           </div>
-          <div className="space-y-2 mb-4 text-sm">
-            <div className="flex justify-between"><span className="text-surface-500">Date</span><span className="text-surface-800">{new Date().toLocaleDateString()}</span></div>
-            <div className="flex justify-between"><span className="text-surface-500">Table</span><span className="text-surface-800">{completedOrder?.tableNumber}</span></div>
-            <div className="flex justify-between"><span className="text-surface-500">Customer</span><span className="text-surface-800">{completedOrder?.customerName || 'Walk-in'}</span></div>
-            <div className="flex justify-between"><span className="text-surface-500">Payment</span><span className="text-surface-800 capitalize">{completedOrder?.paymentMethod}</span></div>
+          <div className="space-y-2 mb-4 text-sm tabular-nums">
+            <div className="flex justify-between"><span className="text-cafe-grounds/70">Date</span><span className="text-cafe-grounds">{new Date().toLocaleDateString()}</span></div>
+            <div className="flex justify-between"><span className="text-cafe-grounds/70">Table</span><span className="text-cafe-grounds">{completedOrder?.tableNumber}</span></div>
+            <div className="flex justify-between"><span className="text-cafe-grounds/70">Customer</span><span className="text-cafe-grounds">{completedOrder?.customerName || 'Walk-in'}</span></div>
+            <div className="flex justify-between"><span className="text-cafe-grounds/70">Payment</span><span className="text-cafe-grounds capitalize">{completedOrder?.paymentMethod}</span></div>
           </div>
-          <div className="border-t border-surface-200 py-2 space-y-1">
+          <div className="border-t border-dashed border-cafe-crema py-2 space-y-1">
             {completedOrder?.items?.map((item, i) => (
-              <div key={i} className="flex justify-between text-sm">
-                <span className="text-surface-700">{item.name} ×{item.quantity}</span>
+              <div key={i} className="flex justify-between text-sm tabular-nums">
+                <span className="text-cafe-grounds">{item.name} ×{item.quantity}</span>
                 <div className="text-right">
-                  <span className="text-surface-800 block">{formatCurrency(item.total)}</span>
+                  <span className="text-cafe-grounds block">{formatCurrency(item.total)}</span>
                   {item.discount > 0 && (
-                    <span className="text-xs text-success-600 block">-{formatCurrency(item.discount)}</span>
+                    <span className="text-xs text-status-success block">-{formatCurrency(item.discount)}</span>
                   )}
                 </div>
               </div>
             ))}
           </div>
-          <div className="border-t border-surface-200 pt-2 space-y-1">
-            <div className="flex justify-between text-sm"><span className="text-surface-500">Subtotal</span><span>{formatCurrency(completedOrder?.subtotal)}</span></div>
-            <div className="flex justify-between text-sm"><span className="text-surface-500">Tax</span><span>{formatCurrency(completedOrder?.tax)}</span></div>
+          <div className="border-t border-dashed border-cafe-crema pt-2 space-y-1 tabular-nums">
+            <div className="flex justify-between text-sm"><span className="text-cafe-grounds/70">Subtotal</span><span className="text-cafe-grounds">{formatCurrency(completedOrder?.subtotal)}</span></div>
+            <div className="flex justify-between text-sm"><span className="text-cafe-grounds/70">Tax</span><span className="text-cafe-grounds">{formatCurrency(completedOrder?.tax)}</span></div>
             {completedOrder?.discount > 0 && (
-              <div className="flex justify-between text-sm text-success-600"><span>Discount</span><span>-{formatCurrency(completedOrder?.discount)}</span></div>
+              <div className="flex justify-between text-sm text-status-success"><span>Discount</span><span>-{formatCurrency(completedOrder?.discount)}</span></div>
             )}
-            <div className="flex justify-between text-base font-extrabold text-surface-900 pt-1 border-t border-surface-200">
+            <div className="flex justify-between font-display text-lg font-bold text-cafe-espresso pt-1 border-t border-dashed border-cafe-crema">
               <span>Total</span><span>{formatCurrency(completedOrder?.total)}</span>
             </div>
           </div>

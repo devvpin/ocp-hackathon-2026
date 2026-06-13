@@ -89,7 +89,7 @@ export default function TablesPage() {
     <div className="space-y-6 animate-fade-in">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-surface-900">Floor & Tables</h1>
+          <h1 className="font-display text-2xl font-semibold text-cafe-espresso">Floor & Tables</h1>
           <p className="text-sm text-surface-500 mt-1">Manage restaurant floors and table layout</p>
         </div>
         <div className="flex gap-2">

@@ -60,9 +60,15 @@ function ToastContainer({ toasts, onRemove }) {
   if (toasts.length === 0) return null;
 
   const typeStyles = {
-    success: 'bg-success-600 text-white',
-    error: 'bg-danger-600 text-white',
-    info: 'bg-primary-600 text-white',
+    success: 'border-l-status-success',
+    error: 'border-l-status-danger',
+    info: 'border-l-cafe-roast',
+  };
+
+  const typeIconColors = {
+    success: 'text-status-success',
+    error: 'text-status-danger',
+    info: 'text-cafe-roast',
   };
 
   const typeIcons = {
@@ -88,13 +94,15 @@ function ToastContainer({ toasts, onRemove }) {
       {toasts.map((toast) => (
         <div
           key={toast.id}
-          className={`flex items-center gap-3 px-4 py-3 rounded-xl shadow-2xl ${typeStyles[toast.type] || typeStyles.info} ${toast.exiting ? 'animate-toast-out' : 'animate-toast-in'}`}
+          className={`flex items-center gap-3 px-4 py-3 rounded-cafe shadow-cafe-lg bg-white border-l-4 text-cafe-grounds ${typeStyles[toast.type] || typeStyles.info} ${toast.exiting ? 'animate-toast-out' : 'animate-toast-in'}`}
         >
-          {typeIcons[toast.type]}
+          <span className={typeIconColors[toast.type] || typeIconColors.info}>
+            {typeIcons[toast.type]}
+          </span>
           <span className="text-sm font-medium flex-1">{toast.message}</span>
           <button
             onClick={() => onRemove(toast.id)}
-            className="flex-shrink-0 p-1 rounded-lg hover:bg-white/20 transition-colors"
+            className="flex-shrink-0 p-1 rounded-cafe hover:bg-cafe-crema/30 transition-colors text-cafe-grounds/60"
             aria-label="Dismiss notification"
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">

@@ -1,5 +1,5 @@
 export default function Skeleton({ variant = 'rect', width, height, className = '', count = 1 }) {
-    const baseClass = 'animate-shimmer rounded-xl';
+    const baseClass = 'animate-shimmer rounded-cafe';
     const variants = {
         rect: `${baseClass} ${className}`,
         circle: `${baseClass} rounded-full ${className}`,

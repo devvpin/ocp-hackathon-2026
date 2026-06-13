@@ -1,8 +1,13 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import Button from '../../components/Button';
+
+const inputBase = 'w-full px-4 py-2.5 rounded-cafe border text-sm font-sans focus:outline-none focus:ring-2 focus:ring-cafe-roast focus:border-cafe-roast transition-all duration-150';
+const inputNormal = `${inputBase} border-cafe-crema bg-white text-cafe-grounds`;
+const inputError = `${inputBase} border-status-danger bg-status-danger/5`;
+
 export default function LoginPage() {
   const { login, isAuthenticated, loading: authLoading } = useAuth();
   const { error: showError } = useToast();
@@ -10,12 +15,13 @@ export default function LoginPage() {
   const [form, setForm] = useState({ email: '', password: '' });
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
-  // Redirect already-authenticated users away from the login page
+
   useEffect(() => {
     if (!authLoading && isAuthenticated) {
       navigate('/pos', { replace: true });
     }
   }, [authLoading, isAuthenticated, navigate]);
+
   const validate = () => {
     const errs = {};
     if (!form.email.trim()) errs.email = 'Email is required';
@@ -24,6 +30,7 @@ export default function LoginPage() {
     setErrors(errs);
     return Object.keys(errs).length === 0;
   };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!validate()) return;
@@ -39,48 +46,55 @@ export default function LoginPage() {
       setLoading(false);
     }
   };
+
   return (
     <div>
-      <h2 className="text-2xl font-bold text-surface-900 mb-1">Welcome back</h2>
-      <p className="text-sm text-surface-500 mb-6">Sign in to your account to continue</p>
+      <h2 className="font-display text-2xl font-semibold text-cafe-espresso mb-1 tracking-wide">Welcome back</h2>
+      <p className="text-sm font-sans text-cafe-grounds/70 mb-6">Sign in to your account to continue</p>
       {errors.general && (
-        <div className="mb-4 p-3 bg-danger-50 border border-danger-200 rounded-xl text-sm text-danger-600">
+        <div className="mb-4 p-3 bg-status-danger/10 border border-status-danger/30 rounded-cafe text-sm text-status-danger font-sans">
           {errors.general}
         </div>
       )}
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
-          <label htmlFor="login-email" className="block text-sm font-medium text-surface-700 mb-1.5">Email</label>
+          <label htmlFor="login-email" className="block text-sm font-medium text-cafe-grounds mb-1.5 font-sans">Email</label>
           <input
             id="login-email"
             type="email"
             value={form.email}
             onChange={(e) => setForm({ ...form, email: e.target.value })}
-            className={`w-full px-4 py-2.5 rounded-xl border ${errors.email ? 'border-danger-500 bg-danger-50' : 'border-surface-200 bg-surface-50'} text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all`}
+            className={errors.email ? inputError : inputNormal}
             placeholder="you@example.com"
             autoComplete="email"
           />
-          {errors.email && <p className="mt-1 text-xs text-danger-500">{errors.email}</p>}
+          {errors.email && <p className="mt-1 text-xs text-status-danger font-sans">{errors.email}</p>}
         </div>
         <div>
-          <label htmlFor="login-password" className="block text-sm font-medium text-surface-700 mb-1.5">Password</label>
+          <label htmlFor="login-password" className="block text-sm font-medium text-cafe-grounds mb-1.5 font-sans">Password</label>
           <input
             id="login-password"
             type="password"
             value={form.password}
             onChange={(e) => setForm({ ...form, password: e.target.value })}
-            className={`w-full px-4 py-2.5 rounded-xl border ${errors.password ? 'border-danger-500 bg-danger-50' : 'border-surface-200 bg-surface-50'} text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all`}
+            className={errors.password ? inputError : inputNormal}
             placeholder="Enter your password"
             autoComplete="current-password"
           />
-          {errors.password && <p className="mt-1 text-xs text-danger-500">{errors.password}</p>}
+          {errors.password && <p className="mt-1 text-xs text-status-danger font-sans">{errors.password}</p>}
         </div>
         <Button type="submit" loading={loading} className="w-full" size="lg">
           Sign In
         </Button>
       </form>
-      <p className="mt-6 text-center text-sm text-surface-500">
+      <p className="mt-6 text-center text-sm font-sans text-cafe-grounds/70">
         Employees should use credentials provided by an admin.
+      </p>
+      <p className="mt-2 text-center text-sm font-sans text-cafe-grounds/70">
+        Need an account?{' '}
+        <Link to="/auth/signup" className="text-cafe-roast hover:text-cafe-espresso underline font-medium">
+          Create one
+        </Link>
       </p>
     </div>
   );

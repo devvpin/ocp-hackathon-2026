@@ -28,7 +28,7 @@ export default function Table({
     });
     if (loading) {
         return (
-            <div className={`bg-white rounded-2xl border border-surface-200 overflow-hidden ${className}`}>
+            <div className={`bg-white rounded-cafe border border-cafe-crema/30 overflow-hidden shadow-cafe ${className}`}>
                 <div className="p-4 space-y-3">
                     {Array.from({ length: 5 }).map((_, i) => (
                         <Skeleton key={i} variant="rect" height={48} />
@@ -39,21 +39,21 @@ export default function Table({
     }
     if (!data || data.length === 0) {
         return (
-            <div className={`bg-white rounded-2xl border border-surface-200 p-8 ${className}`}>
+            <div className={`bg-white rounded-cafe border border-cafe-crema/30 p-8 shadow-cafe ${className}`}>
                 <EmptyState message={emptyMessage} action={emptyAction} />
             </div>
         );
     }
     return (
-        <div className={`bg-white rounded-2xl border border-surface-200 overflow-hidden ${className}`}>
+        <div className={`bg-white rounded-cafe border border-cafe-crema/30 overflow-hidden shadow-cafe ${className}`}>
             <div className="overflow-x-auto">
                 <table className="w-full">
                     <thead>
-                        <tr className="bg-surface-50 border-b border-surface-200">
+                        <tr className="bg-cafe-crema/30 border-b border-cafe-crema/30">
                             {columns.map((col) => (
                                 <th
                                     key={col.key}
-                                    className={`px-4 py-3 text-left text-xs font-bold text-surface-500 uppercase tracking-wider ${col.sortable ? 'cursor-pointer select-none hover:text-surface-700' : ''} ${col.className || ''}`}
+                                    className={`px-4 py-3 text-left text-xs font-display font-semibold text-cafe-grounds uppercase tracking-wide ${col.sortable ? 'cursor-pointer select-none hover:text-cafe-espresso' : ''} ${col.className || ''}`}
                                     onClick={() => col.sortable && handleSort(col.key)}
                                 >
                                     <div className="flex items-center gap-1">
@@ -69,15 +69,15 @@ export default function Table({
                             ))}
                         </tr>
                     </thead>
-                    <tbody className="divide-y divide-surface-100">
+                    <tbody className="divide-y divide-cafe-crema/30">
                         {sortedData.map((row, idx) => (
                             <tr
                                 key={row.id || idx}
-                                className={`transition-colors hover:bg-surface-50 ${onRowClick ? 'cursor-pointer' : ''}`}
+                                className={`transition-colors duration-150 hover:bg-cafe-foam ${idx % 2 === 1 ? 'bg-cafe-foam/50' : 'bg-white'} ${onRowClick ? 'cursor-pointer' : ''}`}
                                 onClick={() => onRowClick?.(row)}
                             >
                                 {columns.map((col) => (
-                                    <td key={col.key} className={`px-4 py-3.5 text-sm text-surface-700 ${col.cellClassName || ''}`}>
+                                    <td key={col.key} className={`px-4 py-3.5 text-sm text-cafe-grounds ${col.cellClassName || ''}`}>
                                         {col.render ? col.render(row[col.key], row) : row[col.key]}
                                     </td>
                                 ))}
