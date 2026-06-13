@@ -117,9 +117,28 @@ export default function OrderPage() {
   const handleSendToKitchen = async () => {
     if (items.length === 0) { showError('Cart is empty'); return; }
     try {
-      await ordersApi.sendToKitchen('temp');
+      // Create or update the order as a draft first, then send to kitchen
+      const editOrderId = searchParams.get('orderId');
+      const payload = {
+        tableId: tableId || null,
+        customerId: customer?.id || null,
+        items: items.map((i) => ({ productId: i.productId, quantity: i.quantity })),
+      };
+      if (coupon?.code) payload.couponCode = coupon.code;
+
+      let savedOrder;
+      if (editOrderId) {
+        savedOrder = await ordersApi.update(editOrderId, payload);
+      } else {
+        savedOrder = await ordersApi.create(payload);
+      }
+
+      await ordersApi.sendToKitchen(savedOrder.data.id);
       success('Order sent to kitchen!');
-    } catch { showError('Failed to send to kitchen'); }
+    } catch (err) {
+      const msg = err?.response?.data?.error?.message || 'Failed to send to kitchen';
+      showError(msg);
+    }
   };
   const handleCompletePayment = async () => {
     if (items.length === 0) { showError('Cart is empty'); return; }
