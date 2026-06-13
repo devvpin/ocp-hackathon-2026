@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { CartProvider } from './context/CartContext';
 import { SessionProvider } from './context/SessionContext';
+import { ToastProvider } from './context/ToastContext';
 
 import Login from './pages/auth/Login';
 import Signup from './pages/auth/Signup';
@@ -10,36 +11,62 @@ import ProductsPlaceholder from './pages/backend/ProductsPlaceholder';
 import POSPlaceholder from './pages/pos/POSPlaceholder';
 import TablesPlaceholder from './pages/pos/TablesPlaceholder';
 import KDSPlaceholder from './pages/kds/KDSPlaceholder';
+import DevComponents from './pages/DevComponents';
+import ProtectedRoute from './components/ProtectedRoute';
+import AdminRoute from './components/AdminRoute';
 
 const App = () => {
   return (
-    <AuthProvider>
-      <SessionProvider>
-        <CartProvider>
-          <BrowserRouter>
-            <Routes>
-              {/* Auth Routes */}
-              <Route path="/auth/login" element={<Login />} />
-              <Route path="/auth/signup" element={<Signup />} />
+    <ToastProvider>
+      <AuthProvider>
+        <SessionProvider>
+          <CartProvider>
+            <BrowserRouter>
+              <Routes>
+                {/* Dev Route */}
+                {import.meta.env.DEV && (
+                  <Route path="/dev/components" element={<DevComponents />} />
+                )}
 
-              {/* Backend Routes */}
-              <Route path="/backend" element={<Navigate to="/backend/products" replace />} />
-              <Route path="/backend/products" element={<ProductsPlaceholder />} />
+                {/* Auth Routes */}
+                <Route path="/auth/login" element={<Login />} />
+                <Route path="/auth/signup" element={<Signup />} />
 
-              {/* POS Routes */}
-              <Route path="/pos" element={<POSPlaceholder />} />
-              <Route path="/pos/tables" element={<TablesPlaceholder />} />
+                {/* Backend Routes (Admin Only) */}
+                <Route path="/backend" element={
+                  <AdminRoute>
+                    <Navigate to="/backend/products" replace />
+                  </AdminRoute>
+                } />
+                <Route path="/backend/products" element={
+                  <AdminRoute>
+                    <ProductsPlaceholder />
+                  </AdminRoute>
+                } />
 
-              {/* KDS Route */}
-              <Route path="/kds" element={<KDSPlaceholder />} />
+                {/* POS Routes (Protected, but open to Employee/Admin) */}
+                <Route path="/pos" element={
+                  <ProtectedRoute>
+                    <POSPlaceholder />
+                  </ProtectedRoute>
+                } />
+                <Route path="/pos/tables" element={
+                  <ProtectedRoute>
+                    <TablesPlaceholder />
+                  </ProtectedRoute>
+                } />
 
-              {/* Default Redirect */}
-              <Route path="*" element={<Navigate to="/auth/login" replace />} />
-            </Routes>
-          </BrowserRouter>
-        </CartProvider>
-      </SessionProvider>
-    </AuthProvider>
+                {/* KDS Route (Open per specification) */}
+                <Route path="/kds" element={<KDSPlaceholder />} />
+
+                {/* Default Redirect */}
+                <Route path="*" element={<Navigate to="/auth/login" replace />} />
+              </Routes>
+            </BrowserRouter>
+          </CartProvider>
+        </SessionProvider>
+      </AuthProvider>
+    </ToastProvider>
   );
 };
 
