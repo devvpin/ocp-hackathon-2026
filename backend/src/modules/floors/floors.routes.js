@@ -88,7 +88,6 @@ router.delete('/:id', requireAuth, requireRole('admin'), validate(idParamSchema,
 router.post(
   '/:floorId/tables',
   requireAuth,
-  requireRole('admin'),
   validate(floorTableParamSchema, 'params'),
   validate(tableCreateSchema),
   async (req, res, next) => {

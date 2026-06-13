@@ -3,14 +3,14 @@ import kdsApi from '../../api/kds';
 import { useToast } from '../../context/ToastContext';
 import { useAuth } from '../../context/AuthContext';
 import SearchBar from '../../components/SearchBar';
-import Logo from '../../components/Logo';
-import { CAFE_NAME } from '../../config/brand';
+import Header from '../../components/layout/Header';
 import useSocket from '../../hooks/useSocket';
 
 const stages = [
   { key: 'to_cook', label: 'TO COOK', headerClass: 'bg-cafe-espresso text-cafe-foam', borderColor: '#713105' },
   { key: 'preparing', label: 'PREPARING', headerClass: 'bg-cafe-roast text-cafe-foam', borderColor: '#7f5e35' },
-  { key: 'completed', label: 'COMPLETED', headerClass: 'bg-cafe-crema text-cafe-espresso', borderColor: '#cfab71' },
+  { key: 'ready', label: 'READY', headerClass: 'bg-cafe-crema text-cafe-espresso', borderColor: '#cfab71' },
+  { key: 'completed', label: 'COMPLETED', headerClass: 'bg-status-success text-white', borderColor: '#16a34a' },
 ];
 
 function ordersReducer(state, action) {
@@ -70,7 +70,7 @@ export default function KDSPage() {
   }, [showError]);
 
   useSocket(null, (msg) => {
-    if (msg.event === 'kds:order_received' || msg.event === 'kds:order_updated') {
+    if (['kds:order_received', 'kds:order_updated', 'kds:stage_changed', 'kds:item_done', 'order:sent_to_kitchen', 'order:preparing', 'order:kitchen_completed'].includes(msg.event)) {
       fetchOrders();
     }
   });
@@ -81,11 +81,19 @@ export default function KDSPage() {
     return () => clearInterval(interval);
   }, [fetchOrders]);
 
+  useEffect(() => {
+    if (isAdmin) return; // Admins can use standard browser navigation
+    
+    // Prevent back navigation for KDS employees
+    window.history.pushState(null, '', window.location.href);
+    const handlePopState = () => {
+      window.history.pushState(null, '', window.location.href);
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [isAdmin]);
+
   const handleAdvanceStage = async (orderId, currentStage) => {
-    if (!isAdmin) {
-      showError('Employees have view-only access to KDS.');
-      return;
-    }
     const stageKeys = stages.map(s => s.key);
     const currentIdx = stageKeys.indexOf(currentStage);
     if (currentIdx >= stageKeys.length - 1) return;
@@ -103,10 +111,6 @@ export default function KDSPage() {
 
   const handleToggleItem = async (orderId, itemId, e) => {
     e.stopPropagation();
-    if (!isAdmin) {
-      showError('Employees have view-only access to KDS.');
-      return;
-    }
     const order = orders.find((o) => o.id === orderId);
     if (!order || order.stage !== 'preparing') return;
 
@@ -121,7 +125,7 @@ export default function KDSPage() {
   };
 
   const handleToggleItemClick = (order, item, stageKey, e) => {
-    if (isAdmin && stageKey === 'preparing') {
+    if (stageKey === 'preparing') {
       handleToggleItem(order.id, item.id, e);
     }
   };
@@ -138,18 +142,13 @@ export default function KDSPage() {
 
   return (
     <div className="min-h-screen bg-cafe-foam flex flex-col">
-      <header className="bg-cafe-grounds text-cafe-foam h-16 flex items-center px-6 gap-4 flex-shrink-0 shadow-cafe">
-        <div className="flex items-center gap-3">
-          <Logo className="h-10" onDark />
-          <div>
-            <h1 className="font-display text-xl font-semibold text-cafe-foam">Kitchen Display</h1>
-            <p className="text-xs font-sans text-cafe-foam/60">{CAFE_NAME}</p>
-          </div>
-        </div>
+      <Header pageTitle="Kitchen Display" />
+
+      <div className="bg-cafe-grounds/5 px-6 py-3 flex items-center justify-between shadow-sm">
         <div className="flex-1 max-w-sm">
-          <SearchBar value={search} onChange={setSearch} placeholder="Search orders or items..." dark />
+          <SearchBar value={search} onChange={setSearch} placeholder="Search orders or items..." />
         </div>
-      </header>
+      </div>
 
       <div className="flex-1 flex gap-4 p-4 overflow-hidden">
         {stages.map((stage) => {
@@ -174,18 +173,36 @@ export default function KDSPage() {
                   </div>
                 ) : (
                   stageOrders.map((order) => (
-                    <div
-                      key={order.id}
-                      onClick={() => isAdmin && handleAdvanceStage(order.id, order.stage)}
-                      className={`bg-white rounded-cafe p-4 shadow-cafe border-l-4 transition-all duration-150 animate-slide-up ${isAdmin ? 'cursor-pointer hover:shadow-cafe-lg active:scale-[0.98]' : ''}`}
-                      style={{ borderLeftColor: stage.borderColor }}
-                    >
+                      <div
+                        key={order.id}
+                        className={`bg-white rounded-cafe p-4 shadow-cafe border-l-4 transition-all duration-150 animate-slide-up ${isAdmin && stage.key === 'to_cook' ? 'hover:shadow-cafe-lg' : ''}`}
+                        style={{ borderLeftColor: stage.borderColor }}
+                      >
                       <div className="flex items-center justify-between mb-3">
                         <span className="font-display text-lg font-semibold text-cafe-espresso">#{order.orderNumber}</span>
-                        {stage.key !== 'completed' && isAdmin && (
-                          <svg className="w-5 h-5 text-cafe-grounds/40" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                          </svg>
+                        {stage.key === 'to_cook' && (
+                          <button 
+                            onClick={(e) => { e.stopPropagation(); handleAdvanceStage(order.id, order.stage); }}
+                            className="text-xs font-sans font-bold uppercase tracking-wider bg-cafe-roast text-cafe-foam px-3 py-1.5 rounded-cafe hover:bg-cafe-espresso transition-colors"
+                          >
+                            Start Preparing
+                          </button>
+                        )}
+                        {stage.key === 'preparing' && (
+                          <button 
+                            onClick={(e) => { e.stopPropagation(); handleAdvanceStage(order.id, order.stage); }}
+                            className="text-xs font-sans font-bold uppercase tracking-wider bg-cafe-crema text-cafe-espresso px-3 py-1.5 rounded-cafe hover:bg-cafe-crema/80 transition-colors"
+                          >
+                            Mark Ready
+                          </button>
+                        )}
+                        {stage.key === 'ready' && (
+                          <button 
+                            onClick={(e) => { e.stopPropagation(); handleAdvanceStage(order.id, order.stage); }}
+                            className="text-xs font-sans font-bold uppercase tracking-wider bg-status-success text-white px-3 py-1.5 rounded-cafe hover:bg-status-success/80 transition-colors"
+                          >
+                            Complete
+                          </button>
                         )}
                       </div>
                       <div className="space-y-1.5">
@@ -193,7 +210,7 @@ export default function KDSPage() {
                           <div
                             key={item.id}
                             onClick={(e) => handleToggleItemClick(order, item, stage.key, e)}
-                            className={`flex items-center gap-2 px-2 py-1.5 rounded-cafe transition-all duration-150 min-h-[44px] ${isAdmin && stage.key === 'preparing' ? 'cursor-pointer hover:bg-cafe-foam' : ''}`}
+                            className={`flex items-center gap-2 px-2 py-1.5 rounded-cafe transition-all duration-150 min-h-[44px] ${stage.key === 'preparing' ? 'cursor-pointer hover:bg-cafe-foam' : ''}`}
                           >
                             {stage.key === 'preparing' && (
                               <div className={`w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 ${

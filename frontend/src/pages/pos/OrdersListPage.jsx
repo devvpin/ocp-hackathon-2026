@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import ordersApi from '../../api/orders';
 import { useToast } from '../../context/ToastContext';
+import { useAuth } from '../../context/AuthContext';
 import { useCart } from '../../context/CartContext';
 import Table from '../../components/Table';
 import SearchBar from '../../components/SearchBar';
@@ -10,9 +11,11 @@ import Button from '../../components/Button';
 import Modal from '../../components/Modal';
 import ConfirmDialog from '../../components/ConfirmDialog';
 import { formatCurrency, formatDateTime } from '../../utils/formatters';
+
 export default function OrdersListPage() {
   const { success, error: showError } = useToast();
   const { loadOrder, setTable } = useCart();
+  const { isAdmin } = useAuth();
   const navigate = useNavigate();
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -20,6 +23,9 @@ export default function OrdersListPage() {
   const [statusFilter, setStatusFilter] = useState('all');
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [deleteId, setDeleteId] = useState(null);
+  const [refundData, setRefundData] = useState(null);
+  const [refundReason, setRefundReason] = useState('');
+  
   const fetchData = async () => {
     setLoading(true);
     try {
@@ -84,6 +90,19 @@ export default function OrdersListPage() {
       setSelectedOrder(null);
       fetchData();
     } catch { showError('Failed to delete order'); }
+  };
+  const handleRefund = async () => {
+    if (!refundData) return;
+    try {
+      await ordersApi.refund(refundData.id, null, refundReason);
+      success('Order refunded successfully');
+      setRefundData(null);
+      setSelectedOrder(null);
+      setRefundReason('');
+      fetchData();
+    } catch (err) {
+      showError(err?.response?.data?.error?.message || 'Failed to refund order');
+    }
   };
   const columns = [
     { key: 'orderNumber', label: 'Order #', sortable: true, render: (v) => <span className="font-mono font-bold text-primary-600">#{v}</span> },
@@ -190,10 +209,34 @@ export default function OrdersListPage() {
                 <Button onClick={() => { handleEditOrder(selectedOrder); setSelectedOrder(null); }}>Edit Order</Button>
               </div>
             )}
+            {isAdmin && (selectedOrder.status === 'paid' || selectedOrder.status === 'completed') && (
+              <div className="flex gap-2 pt-2">
+                <Button variant="danger" onClick={() => setRefundData(selectedOrder)}>Refund Order</Button>
+              </div>
+            )}
           </div>
         )}
       </Modal>
       <ConfirmDialog isOpen={!!deleteId} onClose={() => setDeleteId(null)} onConfirm={handleDelete} title="Delete Order" message="This will permanently delete the order. Continue?" confirmText="Delete" />
+      <Modal isOpen={!!refundData} onClose={() => setRefundData(null)} title="Refund Order" size="sm">
+        <div className="space-y-4">
+          <p className="text-sm text-cafe-grounds/80">Are you sure you want to refund this order? This action cannot be undone.</p>
+          <div>
+            <label className="block text-sm font-medium text-cafe-grounds mb-1">Reason (optional)</label>
+            <input
+              type="text"
+              value={refundReason}
+              onChange={(e) => setRefundReason(e.target.value)}
+              className="w-full px-3 py-2 bg-white border border-cafe-crema/40 rounded-cafe text-sm focus:outline-none focus:ring-2 focus:ring-cafe-roast/50"
+              placeholder="e.g. Customer complaint"
+            />
+          </div>
+          <div className="flex gap-2 justify-end pt-2">
+            <Button variant="secondary" onClick={() => setRefundData(null)}>Cancel</Button>
+            <Button variant="danger" onClick={handleRefund}>Confirm Refund</Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }

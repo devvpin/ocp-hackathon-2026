@@ -12,7 +12,7 @@ const { sendSuccess, sendList } = require('../../utils/response');
 const { parsePagination, buildMeta } = require('../../utils/pagination');
 const { sendMail } = require('../../utils/email');
 const { broadcast } = require('../../websocket');
-const { updateTableStatus, broadcastTable } = require('../../utils/tableStatus');
+const { updateTableStatus, broadcastTable } = require('../../services/tableService');
 
 const router = Router();
 
@@ -41,6 +41,11 @@ const paymentSchema = z.object({
 
 const receiptSchema = z.object({
   email: z.string().email('Email must be valid.').optional(),
+});
+
+const refundSchema = z.object({
+  amount: z.coerce.number().optional(),
+  reason: z.string().optional(),
 });
 
 function money(value) {
@@ -277,31 +282,8 @@ router.get('/:id', requireAuth, validate(idParamSchema, 'params'), async (req, r
 
 router.post('/', requireAuth, requireRole('admin', 'employee'), validate(orderWriteSchema), async (req, res, next) => {
   try {
-    const session = await getOpenSession();
-    const calculation = await calculateOrder(req.validated.body);
-    const tableId = req.validated.body.tableId || null;
-    const order = await prisma.$transaction(async (tx) => {
-      // Removed check for existing draft order to allow multiple transactions per table
-
-      return tx.order.create({
-        data: {
-          sessionId: session.id,
-          tableId,
-          customerId: req.validated.body.customerId || null,
-          couponId: calculation.couponId,
-          employeeId: req.user.sub,
-          status: 'draft',
-          subtotal: calculation.subtotal,
-          taxAmount: calculation.taxAmount,
-          discountAmount: calculation.discountAmount,
-          total: calculation.total,
-          items: { create: calculation.items },
-        },
-        include: orderInclude(),
-      });
-    });
-
-    broadcastTable(order.tableId, true, order.id);
+    const orderService = require('../../services/orderService');
+    const order = await orderService.createDraft(req.validated.body, req.user);
     return sendSuccess(res, 201, serializeOrder(order));
   } catch (err) {
     return next(err);
@@ -310,30 +292,8 @@ router.post('/', requireAuth, requireRole('admin', 'employee'), validate(orderWr
 
 router.patch('/:id', requireAuth, requireRole('admin', 'employee'), validate(idParamSchema, 'params'), validate(orderWriteSchema), async (req, res, next) => {
   try {
-    await getOpenSession();
-    const existing = await getDraftOrder(req.validated.params.id);
-    assertOrderOwner(existing, req.user);
-    const calculation = await calculateOrder(req.validated.body);
-    const order = await prisma.$transaction(async (tx) => {
-      await tx.orderItem.deleteMany({ where: { orderId: existing.id } });
-      return tx.order.update({
-        where: { id: existing.id },
-        data: {
-          tableId: req.validated.body.tableId || null,
-          customerId: req.validated.body.customerId || null,
-          couponId: calculation.couponId,
-          subtotal: calculation.subtotal,
-          taxAmount: calculation.taxAmount,
-          discountAmount: calculation.discountAmount,
-          total: calculation.total,
-          items: { create: calculation.items },
-        },
-        include: orderInclude(),
-      });
-    });
-
-    if (existing.tableId && existing.tableId !== order.tableId) await updateTableStatus(existing.tableId);
-    broadcastTable(order.tableId, true, order.id);
+    const orderService = require('../../services/orderService');
+    const order = await orderService.updateDraft(req.validated.params.id, req.validated.body, req.user);
     return sendSuccess(res, 200, serializeOrder(order));
   } catch (err) {
     return next(err);
@@ -342,48 +302,11 @@ router.patch('/:id', requireAuth, requireRole('admin', 'employee'), validate(idP
 
 router.patch('/:id/pay', requireAuth, requireRole('admin', 'employee'), validate(idParamSchema, 'params'), validate(paymentSchema), async (req, res, next) => {
   try {
-    await getOpenSession();
-    const order = await getDraftOrder(req.validated.params.id);
-    assertOrderOwner(order, req.user);
-    let { paymentMethod, paymentReference, cashReceived } = req.validated.body;
-
-    if (paymentMethod === 'cash') {
-      if (cashReceived === undefined || cashReceived === null) {
-        cashReceived = Number(order.total);
-      }
-      if (Number(cashReceived) < Number(order.total) - 0.01) {
-        throw new AppError('BAD_REQUEST', 'Cash received cannot be less than order total.');
-      }
-    }
-    if ((paymentMethod === 'card' || paymentMethod === 'upi') && !paymentReference) {
-      throw new AppError('BAD_REQUEST', 'Payment reference is required for card and UPI payments.');
-    }
-
-    const paid = await prisma.$transaction(async (tx) => {
-      const result = await tx.order.updateMany({
-        where: { id: order.id, status: 'draft' },
-        data: {
-          status: 'paid',
-          paidAt: new Date(),
-          paymentMethod,
-          paymentReference: paymentReference || null,
-        },
-      });
-
-      if (result.count !== 1) {
-        throw new AppError('PAYMENT_ALREADY_PROCESSED', 'Order payment has already been processed.');
-      }
-
-      return tx.order.findUnique({
-        where: { id: order.id },
-        include: orderInclude(),
-      });
-    });
-
-    await updateTableStatus(paid.tableId);
+    const orderService = require('../../services/orderService');
+    const result = await orderService.payOrder(req.validated.params.id, req.validated.body, req.user);
     return sendSuccess(res, 200, {
-      ...serializeOrder(paid),
-      changeAmount: paymentMethod === 'cash' ? money(Number(cashReceived) - Number(order.total)) : undefined,
+      ...serializeOrder(result.paid),
+      changeAmount: result.changeAmount,
     });
   } catch (err) {
     return next(err);
@@ -392,24 +315,42 @@ router.patch('/:id/pay', requireAuth, requireRole('admin', 'employee'), validate
 
 router.patch('/:id/cancel', requireAuth, requireRole('admin', 'employee'), validate(idParamSchema, 'params'), async (req, res, next) => {
   try {
-    const order = await getDraftOrder(req.validated.params.id);
-    assertOrderOwner(order, req.user);
+    const orderService = require('../../services/orderService');
+    const cancelled = await orderService.cancelOrder(req.validated.params.id, req.user);
+    return sendSuccess(res, 200, serializeOrder(cancelled));
+  } catch (err) {
+    return next(err);
+  }
+});
 
-    const hasActiveKdsItems = order.items.some(
-      (item) => item.kdsStage === 'preparing' || item.kdsStage === 'completed'
-    );
-    if (hasActiveKdsItems) {
-      throw new AppError('BAD_REQUEST', 'Cannot cancel order or free table when items are in preparing or completed stage.');
-    }
+router.patch('/:id/serve', requireAuth, requireRole('admin', 'employee'), validate(idParamSchema, 'params'), async (req, res, next) => {
+  try {
+    const orderService = require('../../services/orderService');
+    const served = await orderService.serveOrder(req.validated.params.id, req.user);
+    return sendSuccess(res, 200, serializeOrder(served));
+  } catch (err) {
+    return next(err);
+  }
+});
 
-    const cancelled = await prisma.order.update({
-      where: { id: order.id },
-      data: { status: 'cancelled' },
-      include: orderInclude(),
+router.post('/:id/free-table', requireAuth, requireRole('admin', 'employee'), validate(idParamSchema, 'params'), async (req, res, next) => {
+  try {
+    const order = await prisma.order.findUnique({
+      where: { id: req.validated.params.id },
     });
 
-    await updateTableStatus(cancelled.tableId);
-    return sendSuccess(res, 200, serializeOrder(cancelled));
+    if (!order) throw new AppError('NOT_FOUND', 'Order not found.');
+    if (!order.tableId) throw new AppError('BAD_REQUEST', 'Order is not associated with a table.');
+
+    const { updateTableStatus } = require('../../services/tableService');
+    await prisma.order.update({
+      where: { id: order.id },
+      data: { tableId: null }
+    });
+    
+    await updateTableStatus(order.tableId);
+    
+    return sendSuccess(res, 200, { freed: true });
   } catch (err) {
     return next(err);
   }
@@ -417,17 +358,12 @@ router.patch('/:id/cancel', requireAuth, requireRole('admin', 'employee'), valid
 
 router.delete('/:id', requireAuth, requireRole('admin', 'employee'), validate(idParamSchema, 'params'), async (req, res, next) => {
   try {
-    const order = await getDraftOrder(req.validated.params.id);
-    assertOrderOwner(order, req.user);
-
-    const hasActiveKdsItems = order.items.some(
-      (item) => item.kdsStage === 'preparing' || item.kdsStage === 'completed'
-    );
-    if (hasActiveKdsItems) {
-      throw new AppError('BAD_REQUEST', 'Cannot delete order or free table when items are in preparing or completed stage.');
-    }
+    const orderService = require('../../services/orderService');
+    const order = await orderService.getDraftOrder(req.validated.params.id);
+    orderService.assertOrderOwner(order, req.user);
 
     await prisma.order.delete({ where: { id: order.id } });
+    const { updateTableStatus } = require('../../services/tableService');
     await updateTableStatus(order.tableId);
     return sendSuccess(res, 200, { deleted: true });
   } catch (err) {
@@ -437,21 +373,13 @@ router.delete('/:id', requireAuth, requireRole('admin', 'employee'), validate(id
 
 router.post('/:id/send-kitchen', requireAuth, requireRole('admin', 'employee'), validate(idParamSchema, 'params'), async (req, res, next) => {
   try {
-    const order = await prisma.order.findUnique({
-      where: { id: req.validated.params.id },
-      include: {
-        ...orderInclude(),
-        items: { include: { product: true } },
-      },
-    });
+    const orderService = require('../../services/orderService');
+    const updated = await orderService.sendToKitchen(req.validated.params.id, req.user);
+    
+    const items = updated.items
+      .filter((item) => item.product?.showOnKds);
 
-    if (!order) throw new AppError('NOT_FOUND', 'Order not found.');
-    const items = order.items
-      .filter((item) => item.product.showOnKds)
-      .map((item) => serializeItem(item));
-
-    broadcast('kds:order_received', { orderId: order.id, tableId: order.tableId, items });
-    return sendSuccess(res, 200, { sent: true, orderId: order.id, items });
+    return sendSuccess(res, 200, { sent: true, orderId: updated.id, items });
   } catch (err) {
     return next(err);
   }
@@ -541,4 +469,15 @@ router.post('/:id/send-receipt', requireAuth, requireRole('admin', 'employee'), 
     return next(err);
   }
 });
+
+router.post('/:id/refund', requireAuth, requireRole('admin'), validate(idParamSchema, 'params'), validate(refundSchema), async (req, res, next) => {
+  try {
+    const orderService = require('../../services/orderService');
+    const refunded = await orderService.refundOrder(req.validated.params.id, req.validated.body, req.user);
+    return sendSuccess(res, 200, { refunded: true, order: serializeOrder(refunded) });
+  } catch (err) {
+    return next(err);
+  }
+});
+
 module.exports = router;

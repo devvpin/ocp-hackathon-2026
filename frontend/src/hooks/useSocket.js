@@ -4,9 +4,17 @@ export default function useSocket(url, onMessage) {
   const wsRef = useRef(null);
   const reconnectRef = useRef(null);
 
+  const savedCallback = useRef(onMessage);
+
+  useEffect(() => {
+    savedCallback.current = onMessage;
+  }, [onMessage]);
+
   const connect = useCallback(() => {
     try {
-      const wsUrl = url || import.meta.env.VITE_WS_URL || 'ws://localhost:8000/ws';
+      const apiBase = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000/api';
+      const derivedWs = apiBase.replace(/^http/, 'ws').replace(/\/api\/?$/, '/ws');
+      const wsUrl = url || import.meta.env.VITE_WS_URL || derivedWs;
       wsRef.current = new WebSocket(wsUrl);
 
       wsRef.current.onopen = () => {
@@ -16,9 +24,9 @@ export default function useSocket(url, onMessage) {
       wsRef.current.onmessage = (event) => {
         try {
           const data = JSON.parse(event.data);
-          onMessage?.(data);
+          savedCallback.current?.(data);
         } catch {
-          onMessage?.(event.data);
+          savedCallback.current?.(event.data);
         }
       };
 
@@ -34,7 +42,7 @@ export default function useSocket(url, onMessage) {
       // WebSocket not available, retry
       reconnectRef.current = setTimeout(connect, 5000);
     }
-  }, [url, onMessage]);
+  }, [url]);
 
   useEffect(() => {
     connect();

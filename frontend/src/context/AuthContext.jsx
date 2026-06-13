@@ -54,6 +54,8 @@ export function AuthProvider({ children }) {
       // Local logout should still succeed if the token is already invalid.
     }
     clearAuth();
+    localStorage.clear();
+    sessionStorage.clear();
     setTokenState(null);
     setUser(null);
   }, []);

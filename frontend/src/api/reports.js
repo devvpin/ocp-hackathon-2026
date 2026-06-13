@@ -40,6 +40,11 @@ const reportsApi = {
       }
     };
   },
+  async getSummary(filters = {}) {
+    const params = new URLSearchParams(filters).toString();
+    const res = await api.get(`/reports/summary?${params}`);
+    return res.data;
+  }
 };
 
 export default reportsApi;

@@ -12,6 +12,9 @@ const initialState = {
   customer: null,
   coupon: null,
   orderId: null,
+  orderType: 'dine_in',
+  status: 'draft',
+  kitchenCompleted: false,
 };
 
 function cartReducer(state, action) {
@@ -71,14 +74,20 @@ function cartReducer(state, action) {
     case 'SET_ORDER_ID':
       return { ...state, orderId: action.payload };
 
+    case 'SET_ORDER_TYPE':
+      return { ...state, orderType: action.payload };
+
     case 'LOAD_ORDER':
       return {
         ...state,
         items: action.payload.items,
         customer: action.payload.customer,
         orderId: action.payload.orderId,
+        orderType: action.payload.orderType || 'dine_in',
         tableId: action.payload.tableId,
         tableNumber: action.payload.tableNumber,
+        status: action.payload.status || 'draft',
+        kitchenCompleted: action.payload.kitchenCompleted || false,
       };
 
     case 'CLEAR_CART':
@@ -148,6 +157,10 @@ export function CartProvider({ children }) {
     dispatch({ type: 'SET_TABLE', payload: { tableId, tableNumber } });
   }, []);
 
+  const setOrderType = useCallback((type) => {
+    dispatch({ type: 'SET_ORDER_TYPE', payload: type });
+  }, []);
+
   const setCustomer = useCallback((customer) => {
     dispatch({ type: 'SET_CUSTOMER', payload: customer });
   }, []);
@@ -182,6 +195,7 @@ export function CartProvider({ children }) {
         removeItem,
         updateQuantity,
         setTable,
+        setOrderType,
         setOrderId,
         setCustomer,
         setCoupon,

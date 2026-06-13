@@ -26,8 +26,10 @@ const authRoutes = require('./modules/auth/auth.routes');
 const productsRoutes = require('./modules/products/products.routes');
 const categoriesRoutes = require('./modules/categories/categories.routes');
 const paymentMethodsRoutes = require('./modules/payment-methods/payment-methods.routes');
+const paymentsRoutes = require('./modules/payments/payments.routes');
 const floorsRoutes = require('./modules/floors/floors.routes');
 const tablesRoutes = require('./modules/tables/tables.routes');
+const tableRequestsRoutes = require('./modules/table-requests/table-requests.routes');
 const usersRoutes = require('./modules/users/users.routes');
 const customersRoutes = require('./modules/customers/customers.routes');
 const couponsRoutes = require('./modules/coupons/coupons.routes');
@@ -36,6 +38,8 @@ const sessionsRoutes = require('./modules/sessions/sessions.routes');
 const ordersRoutes = require('./modules/orders/orders.routes');
 const kdsRoutes = require('./modules/kds/kds.routes');
 const reportsRoutes = require('./modules/reports/reports.routes');
+const publicRoutes = require('./modules/public/public.routes');
+const reservationsRoutes = require('./modules/reservations/reservations.routes');
 
 // ── App factory ───────────────────────────────────────────────────────────────
 
@@ -62,8 +66,10 @@ function createApp() {
   app.use('/api/products', productsRoutes);
   app.use('/api/categories', categoriesRoutes);
   app.use('/api/payment-methods', paymentMethodsRoutes);
+  app.use('/api/payments', paymentsRoutes);
   app.use('/api/floors', floorsRoutes);
   app.use('/api/tables', tablesRoutes);
+  app.use('/api/table-requests', tableRequestsRoutes);
   app.use('/api/users', usersRoutes);
   app.use('/api/customers', customersRoutes);
   app.use('/api/coupons', couponsRoutes);
@@ -72,6 +78,8 @@ function createApp() {
   app.use('/api/orders', ordersRoutes);
   app.use('/api/kds', kdsRoutes);
   app.use('/api/reports', reportsRoutes);
+  app.use('/api/public', publicRoutes);
+  app.use('/api/reservations', reservationsRoutes);
 
   // ── Error handling (must come last) ───────────────────────────────────────
 

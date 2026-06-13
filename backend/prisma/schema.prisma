@@ -26,13 +26,28 @@ enum PaymentMethodType {
 
 enum OrderStatus {
   draft
+  sent_to_kitchen
+  preparing
+  ready
+  served
   paid
+  completed
   cancelled
+  refunded
+}
+
+enum TableStatus {
+  available
+  occupied
+  preparing
+  ready_to_serve
+  completed
 }
 
 enum KdsStage {
   to_cook
   preparing
+  ready
   completed
 }
 
@@ -49,8 +64,14 @@ enum PromotionAppliedTo {
 enum BookingStatus {
   pending
   confirmed
-  cancelled
+  arrived
   completed
+  cancelled
+}
+
+enum OrderType {
+  dine_in
+  pickup
 }
 
 model User {
@@ -63,6 +84,8 @@ model User {
   createdAt    DateTime  @default(now()) @map("created_at")
   sessions     Session[] @relation("OpenedSessions")
   orders       Order[]   @relation("EmployeeOrders")
+  refunds      Refund[]
+  logs         ActivityLog[]
 
   @@index([role])
   @@index([isArchived])
@@ -122,9 +145,13 @@ model DiningTable {
   floor       Floor     @relation(fields: [floorId], references: [id], onDelete: Cascade)
   tableNumber Int       @map("table_number")
   seatCount   Int       @map("seat_count")
+  occupiedSeats Int     @default(0) @map("occupied_seats")
   isActive    Boolean   @default(true) @map("is_active")
-  orders      Order[]
-  bookings    Booking[]
+  status        TableStatus @default(available)
+  orders        Order[]
+  bookings      Booking[]
+  statusHistory TableStatusHistory[]
+  tableRequests TableRequest[]
 
   @@unique([floorId, tableNumber])
   @@index([floorId])
@@ -181,10 +208,15 @@ model Order {
   total            Decimal            @db.Decimal(10, 2)
   paymentMethod    PaymentMethodType? @map("payment_method")
   paymentReference String?            @map("payment_reference") @db.VarChar(255)
+  orderType        OrderType          @default(dine_in) @map("order_type")
   createdAt        DateTime           @default(now()) @map("created_at")
   paidAt           DateTime?          @map("paid_at")
   receiptSentAt    DateTime?          @map("receipt_sent_at")
+  kitchenCompleted Boolean            @default(false) @map("kitchen_completed")
   items            OrderItem[]
+  statusHistory    OrderStatusHistory[]
+  refunds          Refund[]
+  payments         Payment[]
 
   @@index([sessionId])
   @@index([tableId])
@@ -267,4 +299,103 @@ model Booking {
   @@index([bookingDate])
   @@index([status])
   @@map("bookings")
+}
+
+model OrderStatusHistory {
+  id         String      @id @default(uuid()) @db.Uuid
+  orderId    String      @map("order_id") @db.Uuid
+  order      Order       @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  oldStatus  OrderStatus? @map("old_status")
+  newStatus  OrderStatus @map("new_status")
+  changedBy  String?     @map("changed_by") @db.Uuid
+  timestamp  DateTime    @default(now())
+
+  @@index([orderId])
+  @@map("order_status_history")
+}
+
+model Refund {
+  id           String   @id @default(uuid()) @db.Uuid
+  orderId      String   @map("order_id") @db.Uuid
+  order        Order    @relation(fields: [orderId], references: [id])
+  refundReason String   @map("refund_reason")
+  refundAmount Decimal  @map("refund_amount") @db.Decimal(10, 2)
+  refundDate   DateTime @default(now()) @map("refund_date")
+  refundedBy   String   @map("refunded_by") @db.Uuid
+  refundedUser User     @relation(fields: [refundedBy], references: [id])
+
+  @@index([orderId])
+  @@index([refundedBy])
+  @@map("refunds")
+}
+
+model Payment {
+  id                  String            @id @default(uuid()) @db.Uuid
+  orderId             String            @map("order_id") @db.Uuid
+  order               Order             @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  amount              Decimal           @db.Decimal(10, 2)
+  paymentMethod       PaymentMethodType @map("payment_method")
+  transactionReference String?          @map("transaction_reference") @db.VarChar(255)
+  paymentDate         DateTime          @default(now()) @map("payment_date")
+
+  @@index([orderId])
+  @@map("payments")
+}
+
+model ActivityLog {
+  id         String   @id @default(uuid()) @db.Uuid
+  userId     String?  @map("user_id") @db.Uuid
+  user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  action     String   @db.VarChar(255)
+  entityType String   @map("entity_type") @db.VarChar(255)
+  entityId   String?  @map("entity_id") @db.Uuid
+  metadata   Json?
+  timestamp  DateTime @default(now())
+
+  @@index([userId])
+  @@index([entityType, entityId])
+  @@index([timestamp])
+  @@map("activity_logs")
+}
+
+model Notification {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String?  @map("user_id") @db.Uuid
+  role      Role?    // Target specific roles if userId is null
+  title     String   @db.VarChar(255)
+  message   String
+  isRead    Boolean  @default(false) @map("is_read")
+  type      String   @db.VarChar(50)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([userId])
+  @@index([role])
+  @@index([isRead])
+  @@map("notifications")
+}
+
+model TableStatusHistory {
+  id         String       @id @default(uuid()) @db.Uuid
+  tableId    String       @map("table_id") @db.Uuid
+  table      DiningTable  @relation(fields: [tableId], references: [id], onDelete: Cascade)
+  oldStatus  TableStatus? @map("old_status")
+  newStatus  TableStatus  @map("new_status")
+  timestamp  DateTime     @default(now())
+
+  @@index([tableId])
+  @@map("table_status_history")
+}
+
+model TableRequest {
+  id        String      @id @default(uuid()) @db.Uuid
+  tableId   String      @map("table_id") @db.Uuid
+  table     DiningTable @relation(fields: [tableId], references: [id], onDelete: Cascade)
+  type      String      @db.VarChar(50) // e.g. "waiter", "water", "bill", "clean"
+  status    String      @default("pending") @db.VarChar(50) // "pending", "resolved"
+  createdAt DateTime    @default(now()) @map("created_at")
+  updatedAt DateTime    @updatedAt @map("updated_at")
+
+  @@index([tableId])
+  @@index([status])
+  @@map("table_requests")
 }

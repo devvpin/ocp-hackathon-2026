@@ -7,8 +7,9 @@ import ProtectedRoute from './components/ProtectedRoute';
 
 // Layouts
 import AuthLayout from './layout/AuthLayout';
-import BackendLayout from './layout/BackendLayout';
-import POSLayout from './layout/POSLayout';
+import AdminLayout from './layout/AdminLayout';
+import EmployeeLayout from './layout/EmployeeLayout';
+import KDSLayout from './layout/KDSLayout';
 
 // Auth Pages
 import LoginPage from './pages/auth/LoginPage';
@@ -22,6 +23,8 @@ import PromotionsPage from './pages/backend/PromotionsPage';
 import UsersPage from './pages/backend/UsersPage';
 import POSSessionPage from './pages/backend/POSSessionPage';
 import ReportsPage from './pages/backend/ReportsPage';
+import ReservationsPage from './pages/backend/ReservationsPage';
+import DashboardPage from './pages/backend/DashboardPage';
 
 // POS Pages
 import TableViewPage from './pages/pos/TableViewPage';
@@ -31,6 +34,9 @@ import CustomersPage from './pages/pos/CustomersPage';
 
 // KDS
 import KDSPage from './pages/kds/KDSPage';
+
+// Customer
+import CustomerMenuPage from './pages/customer/CustomerMenuPage';
 
 export default function App() {
   return (
@@ -52,11 +58,12 @@ export default function App() {
                   path="/backend"
                   element={
                     <ProtectedRoute requireAdmin>
-                      <BackendLayout />
+                      <AdminLayout />
                     </ProtectedRoute>
                   }
                 >
-                  <Route index element={<Navigate to="products" replace />} />
+                  <Route index element={<Navigate to="dashboard" replace />} />
+                  <Route path="dashboard" element={<DashboardPage />} />
                   <Route path="products" element={<ProductsPage />} />
                   <Route path="categories" element={<CategoriesPage />} />
                   <Route path="payment-methods" element={<PaymentMethodsPage />} />
@@ -65,6 +72,7 @@ export default function App() {
                   <Route path="users" element={<UsersPage />} />
                   <Route path="pos-session" element={<POSSessionPage />} />
                   <Route path="reports" element={<ReportsPage />} />
+                  <Route path="reservations" element={<ReservationsPage />} />
                 </Route>
 
                 {/* POS Routes (Authenticated) */}
@@ -72,7 +80,7 @@ export default function App() {
                   path="/pos"
                   element={
                     <ProtectedRoute>
-                      <POSLayout />
+                      <EmployeeLayout />
                     </ProtectedRoute>
                   }
                 >
@@ -81,10 +89,16 @@ export default function App() {
                   <Route path="order/:tableId" element={<OrderPage />} />
                   <Route path="orders" element={<OrdersListPage />} />
                   <Route path="customers" element={<CustomersPage />} />
+                  <Route path="reservations" element={<ReservationsPage />} />
                 </Route>
 
                 {/* KDS Route (Standalone) */}
-                <Route path="/kds" element={<KDSPage />} />
+                <Route path="/kds" element={<KDSLayout />}>
+                  <Route index element={<KDSPage />} />
+                </Route>
+
+                {/* Customer Menu Route (Public) */}
+                <Route path="/menu/:tableId" element={<CustomerMenuPage />} />
 
                 {/* Default redirect */}
                 <Route path="/" element={<Navigate to="/auth/login" replace />} />

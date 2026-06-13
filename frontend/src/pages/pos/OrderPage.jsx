@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
+import { useLocation, useNavigate, useSearchParams, Link, useParams } from 'react-router-dom';
 import productsApi from '../../api/products';
 import categoriesApi from '../../api/categories';
 import ordersApi from '../../api/orders';
@@ -9,6 +9,7 @@ import { useToast } from '../../context/ToastContext';
 import { formatCurrency } from '../../utils/formatters';
 import Button from '../../components/Button';
 import Modal from '../../components/Modal';
+import useSocket from '../../hooks/useSocket';
 import QRCode from '../../components/QRCode';
 import Badge from '../../components/Badge';
 import Skeleton from '../../components/Skeleton';
@@ -21,9 +22,10 @@ export default function OrderPage() {
   const navigate = useNavigate();
   const { success, error: showError } = useToast();
   const {
-    items, tableNumber, customer, totals, coupon, orderId,
+    items, tableNumber, customer, totals, coupon, orderId, status, kitchenCompleted,
     addItem, removeItem, updateQuantity, setTable, setOrderId,
     setCustomer, setCoupon, removeCoupon, clearCart, loadOrder,
+    orderType, setOrderType
   } = useCart();
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
@@ -46,6 +48,7 @@ export default function OrderPage() {
   const [couponLoading, setCouponLoading] = useState(false);
   const [emailValue, setEmailValue] = useState('');
   const [completedOrder, setCompletedOrder] = useState(null);
+  const [paymentModalOpen, setPaymentModalOpen] = useState(false);
   // Customer search
   const [customerSearch, setCustomerSearch] = useState('');
   const [customers, setCustomers] = useState([]);
@@ -86,6 +89,8 @@ export default function OrderPage() {
           orderId: order.id,
           tableId: order.tableId,
           tableNumber: order.tableNumber,
+          status: order.status,
+          kitchenCompleted: order.kitchenCompleted,
         });
       }).catch(() => {});
     }
@@ -135,12 +140,40 @@ export default function OrderPage() {
   }, []);
   const getCategoryColor = useCallback((catId) => categories.find((c) => c.id === catId)?.color || '#94a3b8', [categories]);
   const getCategoryName = useCallback((catId) => categories.find((c) => c.id === catId)?.name || '', [categories]);
+  
+  useSocket(null, (msg) => {
+    if (orderId && ['kds:order_received', 'kds:stage_changed', 'kds:item_done', 'order:sent_to_kitchen', 'order:preparing', 'order:ready', 'order:served', 'order:kitchen_completed', 'order:completed', 'order:paid'].includes(msg.event)) {
+      const p = msg.payload;
+      if (p.orderId === orderId) {
+        ordersApi.getById(orderId).then((res) => {
+          const order = res.data;
+          loadOrder({
+            items: order.items.map((i) => ({
+              productId: i.productId,
+              name: i.name,
+              price: i.price,
+              quantity: i.quantity,
+              tax: i.tax || 0,
+            })),
+            customer: order.customerId ? { id: order.customerId, name: order.customerName } : null,
+            orderId: order.id,
+            tableId: order.tableId,
+            tableNumber: order.tableNumber,
+            status: order.status,
+            kitchenCompleted: order.kitchenCompleted,
+          });
+        }).catch(() => {});
+      }
+    }
+  });
+
   const filteredProducts = products.filter((p) => {
     const matchesCategory = activeCategory === 'all' || p.categoryId === activeCategory;
     const matchesSearch = !productSearch || p.name.toLowerCase().includes(productSearch.toLowerCase());
     return matchesCategory && matchesSearch;
   });
   const handleApplyCoupon = async () => {
+    if (status !== 'draft') return showError('Cannot modify non-draft order');
     if (!couponCode.trim()) return;
     setCouponLoading(true);
     try {
@@ -162,6 +195,7 @@ export default function OrderPage() {
       const editOrderId = searchParams.get('orderId') || orderId;
       const payload = {
         tableId: tableId || null,
+        orderType,
         customerId: customer?.id || null,
         items: items.map((i) => ({ productId: i.productId, quantity: i.quantity })),
       };
@@ -175,6 +209,26 @@ export default function OrderPage() {
       }
 
       await ordersApi.sendToKitchen(savedOrder.data.id);
+      
+      // Instantly update the local state so the UI reflects the sent_to_kitchen status
+      const updatedOrder = await ordersApi.getById(savedOrder.data.id);
+      const order = updatedOrder.data;
+      loadOrder({
+        items: order.items.map((i) => ({
+          productId: i.productId,
+          name: i.name,
+          price: i.price,
+          quantity: i.quantity,
+          tax: i.tax || 0,
+        })),
+        customer: order.customerId ? { id: order.customerId, name: order.customerName } : null,
+        orderId: order.id,
+        tableId: order.tableId,
+        tableNumber: order.tableNumber,
+        status: order.status,
+        kitchenCompleted: order.kitchenCompleted,
+      });
+
       setOrderId(savedOrder.data.id);
       success('Order sent to kitchen!');
     } catch (err) {
@@ -182,7 +236,18 @@ export default function OrderPage() {
       showError(msg);
     }
   };
+
+  const handleMarkServed = async () => {
+    try {
+      await ordersApi.markServed(orderId);
+      success('Order marked as served');
+    } catch (err) {
+      showError(err?.response?.data?.message || 'Failed to serve order');
+    }
+  };
+
   const handleCancelOrder = async () => {
+    if (status !== 'draft') return showError('Cannot cancel order that has been sent to kitchen');
     const editOrderId = searchParams.get('orderId') || orderId;
     if (!editOrderId) {
       clearCart();
@@ -194,24 +259,34 @@ export default function OrderPage() {
   const handleConfirmFreeTable = async () => {
     const editOrderId = searchParams.get('orderId') || orderId;
     try {
-      await ordersApi.cancel(editOrderId);
-      success('Order cancelled and table freed');
+      if (status === 'paid' || status === 'completed') {
+        await ordersApi.freeTable(editOrderId);
+        success('Table freed successfully');
+      } else {
+        await ordersApi.cancel(editOrderId);
+        success('Order cancelled and table freed');
+      }
       clearCart();
       setConfirmFreeModal(false);
       navigate('/pos/tables');
     } catch (err) {
-      const msg = err?.response?.data?.error?.message || 'Failed to cancel order';
+      const msg = err?.response?.data?.error?.message || 'Failed to process table action';
       showError(msg);
     }
   };
   const handleCompletePayment = async () => {
     if (items.length === 0) { showError('Cart is empty'); return; }
+    if (!kitchenCompleted) {
+      showError('Order cannot be paid until kitchen preparation is completed.');
+      return;
+    }
     if (!selectedPayment) { showError('Select a payment method'); return; }
     setPaymentLoading(true);
     try {
       const editOrderId = searchParams.get('orderId') || orderId;
       const createPayload = {
         tableId: tableId || null,
+        orderType,
         customerId: customer?.id || null,
         items: items.map((i) => ({
           productId: i.productId,
@@ -235,7 +310,14 @@ export default function OrderPage() {
       // Build payment args
       const payRef = selectedPayment === 'card' ? (cardRef || 'card-txn') : (selectedPayment === 'upi' ? 'upi-txn' : null);
       const cashAmt = selectedPayment === 'cash' ? Number(cashTendered || totals.total) : null;
-      await ordersApi.markPaid(paymentOrderId, selectedPayment, payRef, cashAmt);
+      
+      const { default: paymentsApi } = await import('../../api/payments');
+      await paymentsApi.processPayment({
+        orderId: paymentOrderId,
+        amount: totals.total,
+        paymentMethod: selectedPayment,
+        transactionReference: payRef
+      });
 
       // Display receipt
       setCompletedOrder({
@@ -256,6 +338,7 @@ export default function OrderPage() {
         total: totals.total,
       });
       setReceiptModalOpen(true);
+      setPaymentModalOpen(false);
       success('Payment completed!');
       clearCart();
     } catch (err) {
@@ -308,7 +391,6 @@ export default function OrderPage() {
       <div className="flex h-full gap-4 p-4">
         <div className="flex-1"><Skeleton height={600} /></div>
         <div className="w-80"><Skeleton height={600} /></div>
-        <div className="w-72"><Skeleton height={600} /></div>
       </div>
     );
   }
@@ -358,8 +440,11 @@ export default function OrderPage() {
             {filteredProducts.map((product) => (
               <button
                 key={product.id}
-                onClick={() => addItem(product)}
-                className="bg-white rounded-cafe border border-cafe-crema/30 p-4 text-left hover:shadow-cafe-lg hover:border-cafe-crema transition-all duration-150 active:scale-[0.97] group shadow-cafe"
+                onClick={() => {
+                  if (status === 'draft') addItem(product);
+                  else showError('Cannot add items to non-draft order');
+                }}
+                className={`bg-white rounded-cafe border border-cafe-crema/30 p-4 text-left transition-all duration-150 group shadow-cafe ${status === 'draft' ? 'hover:shadow-cafe-lg hover:border-cafe-crema active:scale-[0.97]' : 'opacity-70 cursor-not-allowed'}`}
               >
                 <div
                   className="w-full h-20 rounded-xl mb-3 flex items-center justify-center text-2xl opacity-70 group-hover:opacity-100 transition-opacity"
@@ -401,10 +486,18 @@ export default function OrderPage() {
                 </>
               ) : ''}
             </h2>
-            {tableNumber && (
+            {tableNumber && status === 'draft' && (
               <button
                 onClick={handleCancelOrder}
                 className="text-xs font-bold px-2 py-1 bg-danger-50 text-danger-600 rounded hover:bg-danger-100 transition-colors"
+              >
+                Cancel Order
+              </button>
+            )}
+            {tableNumber && (status === 'paid' || status === 'completed') && (
+              <button
+                onClick={() => setConfirmFreeModal(true)}
+                className="text-xs font-bold px-2 py-1 bg-status-success/10 text-status-success rounded hover:bg-status-success/20 transition-colors"
               >
                 Free Table
               </button>
@@ -413,6 +506,22 @@ export default function OrderPage() {
           {customer && (
             <p className="text-xs text-surface-500 mt-0.5">Customer: {customer.name}</p>
           )}
+          <div className="flex rounded-md mt-2 bg-surface-100 p-1 w-full">
+            <button
+              onClick={() => status === 'draft' && setOrderType('dine_in')}
+              className={`flex-1 text-xs py-1.5 rounded-md font-bold transition-colors ${orderType === 'dine_in' ? 'bg-white shadow text-cafe-espresso' : 'text-surface-500 hover:text-surface-800'}`}
+              disabled={status !== 'draft'}
+            >
+              Dine-In
+            </button>
+            <button
+              onClick={() => status === 'draft' && setOrderType('pickup')}
+              className={`flex-1 text-xs py-1.5 rounded-md font-bold transition-colors ${orderType === 'pickup' ? 'bg-white shadow text-cafe-espresso' : 'text-surface-500 hover:text-surface-800'}`}
+              disabled={status !== 'draft'}
+            >
+              Pickup
+            </button>
+          </div>
         </div>
         {/* Cart Items */}
         <div className="flex-1 overflow-auto p-3 space-y-2">
@@ -432,9 +541,12 @@ export default function OrderPage() {
                     <p className="text-xs text-surface-500">{formatCurrency(item.price)} each</p>
                   </div>
                   <button
-                    onClick={() => removeItem(item.productId)}
-                    className="p-1 rounded-lg hover:bg-danger-100 text-surface-400 hover:text-danger-500 transition-colors flex-shrink-0"
+                    onClick={() => {
+                      if (status === 'draft') removeItem(item.productId);
+                    }}
+                    className={`p-1 rounded-lg transition-colors flex-shrink-0 ${status === 'draft' ? 'hover:bg-danger-100 text-surface-400 hover:text-danger-500 cursor-pointer' : 'opacity-50 cursor-not-allowed text-surface-300'}`}
                     aria-label="Remove item"
+                    disabled={status !== 'draft'}
                   >
                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -444,15 +556,17 @@ export default function OrderPage() {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <button
-                      onClick={() => updateQuantity(item.productId, item.quantity - 1)}
-                      className="w-8 h-8 rounded-full bg-cafe-crema/40 hover:bg-cafe-crema flex items-center justify-center text-cafe-espresso transition-all duration-150 active:scale-95 min-w-[44px] min-h-[44px]"
+                      onClick={() => { if (status === 'draft') updateQuantity(item.productId, item.quantity - 1); }}
+                      className={`w-8 h-8 rounded-full flex items-center justify-center transition-all duration-150 min-w-[44px] min-h-[44px] ${status === 'draft' ? 'bg-cafe-crema/40 hover:bg-cafe-crema text-cafe-espresso active:scale-95 cursor-pointer' : 'opacity-50 cursor-not-allowed text-surface-300'}`}
                       aria-label="Decrease quantity"
+                      disabled={status !== 'draft'}
                     >−</button>
                     <span className="text-sm font-sans font-semibold tabular-nums text-cafe-grounds w-6 text-center">{item.quantity}</span>
                     <button
-                      onClick={() => updateQuantity(item.productId, item.quantity + 1)}
-                      className="w-8 h-8 rounded-full bg-cafe-crema/40 hover:bg-cafe-crema flex items-center justify-center text-cafe-espresso transition-all duration-150 active:scale-95 min-w-[44px] min-h-[44px]"
+                      onClick={() => { if (status === 'draft') updateQuantity(item.productId, item.quantity + 1); }}
+                      className={`w-8 h-8 rounded-full flex items-center justify-center transition-all duration-150 min-w-[44px] min-h-[44px] ${status === 'draft' ? 'bg-cafe-crema/40 hover:bg-cafe-crema text-cafe-espresso active:scale-95 cursor-pointer' : 'opacity-50 cursor-not-allowed text-surface-300'}`}
                       aria-label="Increase quantity"
+                      disabled={status !== 'draft'}
                     >+</button>
                   </div>
                   <div className="text-right">
@@ -506,46 +620,112 @@ export default function OrderPage() {
           </div>
         </div>
         {/* Action Buttons */}
-        <div className="p-3 border-t border-surface-200 grid grid-cols-2 gap-2">
-          <Button size="sm" variant="secondary" onClick={() => { handleLoadCustomers(); setCustomerModalOpen(true); }}>
-            Assign Customer
-          </Button>
-          <Button size="sm" variant="secondary" onClick={() => setCouponModalOpen(true)}>
-            Discount
-          </Button>
-          <Button size="sm" variant="success" onClick={handleSendToKitchen}>
-            Send to Kitchen
-          </Button>
-          <Button size="sm" variant="danger" onClick={handleCancelOrder}>
-            Cancel Order
-          </Button>
+        <div className="p-3 border-t border-surface-200 flex flex-col gap-2 bg-white">
+          {status === 'draft' ? (
+            <>
+              <div className="grid grid-cols-2 gap-2">
+                <Button size="sm" variant="secondary" onClick={() => { handleLoadCustomers(); setCustomerModalOpen(true); }}>
+                  Assign Customer
+                </Button>
+                <Button size="sm" variant="secondary" onClick={() => setCouponModalOpen(true)}>
+                  Discount
+                </Button>
+              </div>
+              <div className="grid grid-cols-2 gap-2 mt-1">
+                <Button size="sm" variant="danger" onClick={handleCancelOrder}>
+                  Cancel
+                </Button>
+                <Button size="sm" variant="success" onClick={handleSendToKitchen} disabled={items.length === 0}>
+                  Send to Kitchen
+                </Button>
+              </div>
+            </>
+          ) : (
+            <>
+              {status === 'ready' && (
+                <Button 
+                  size="lg" 
+                  variant="success" 
+                  className="w-full py-3 text-lg font-bold shadow-cafe-lg mb-2"
+                  onClick={handleMarkServed}
+                >
+                  Mark Served
+                </Button>
+              )}
+              {['ready', 'served'].includes(status) && (
+                <Button 
+                  size="lg" 
+                  variant="primary" 
+                  className="w-full py-3 text-lg font-bold shadow-cafe-lg"
+                  onClick={() => setPaymentModalOpen(true)}
+                >
+                  Pay Now
+                </Button>
+              )}
+              {['sent_to_kitchen', 'preparing'].includes(status) && (
+                <Button 
+                  size="lg" 
+                  variant="secondary" 
+                  className="w-full py-3 text-lg font-bold shadow-cafe-lg opacity-70 cursor-not-allowed"
+                  disabled
+                >
+                  Preparing in Kitchen...
+                </Button>
+              )}
+              {['paid', 'completed'].includes(status) && (
+                <Button 
+                  size="lg" 
+                  variant="primary" 
+                  className="w-full py-3 text-lg font-bold shadow-cafe-lg mb-2"
+                  onClick={() => {
+                    // Try to load completed order details to show receipt
+                    ordersApi.getById(orderId).then(res => {
+                      setCompletedOrder(res.data);
+                      setReceiptModalOpen(true);
+                    }).catch(() => showError('Failed to load receipt'));
+                  }}
+                >
+                  View Receipt
+                </Button>
+              )}
+              {tableId && ['paid', 'completed', 'served', 'ready'].includes(status) && (
+                <Button size="sm" variant="danger" onClick={() => setConfirmFreeModal(true)} className="mt-1 w-full">
+                  Free Table
+                </Button>
+              )}
+              {['sent_to_kitchen', 'preparing'].includes(status) && (
+                <Button size="sm" variant="danger" onClick={handleCancelOrder} className="mt-1 w-full">
+                  Cancel Order
+                </Button>
+              )}
+            </>
+          )}
         </div>
       </div>
-      {/* RIGHT - Payment Panel */}
-      <div className="w-72 flex flex-col bg-cafe-foam flex-shrink-0">
-        <div className="p-3 border-b border-cafe-crema/30 bg-white">
-          <h2 className="text-sm font-sans font-bold text-cafe-grounds">Payment</h2>
-        </div>
-        <div className="flex-1 p-3 space-y-3 overflow-auto">
-          {paymentMethods.map((method) => (
-            <button
-              key={method.id}
-              onClick={() => setSelectedPayment(method.type)}
-              className={`w-full p-4 rounded-cafe border-2 text-left transition-all duration-150 min-h-[44px] ${
-                selectedPayment === method.type
-                  ? 'border-cafe-roast bg-cafe-roast/5 shadow-cafe'
-                  : 'border-cafe-crema bg-white hover:border-cafe-roast/50'
-              }`}
-            >
-              <p className="text-sm font-bold text-surface-900">{method.name}</p>
-              <p className="text-xs text-surface-500 mt-0.5">
-                {method.type === 'cash' && 'Pay with cash'}
-                {method.type === 'card' && 'Card / Digital payment'}
-                {method.type === 'upi' && 'Scan QR code'}
-              </p>
-            </button>
-          ))}
-          {/* Cash Input */}
+      {/* Payment Modal */}
+      <Modal isOpen={paymentModalOpen} onClose={() => setPaymentModalOpen(false)} title="Complete Payment" size="md">
+        <div className="space-y-4 max-h-[70vh] overflow-auto px-1">
+          <div className="space-y-3">
+            {paymentMethods.map((method) => (
+              <button
+                key={method.id}
+                onClick={() => setSelectedPayment(method.type)}
+                className={`w-full p-4 rounded-cafe border-2 text-left transition-all duration-150 min-h-[44px] ${
+                  selectedPayment === method.type
+                    ? 'border-cafe-roast bg-cafe-roast/5 shadow-cafe'
+                    : 'border-cafe-crema bg-white hover:border-cafe-roast/50'
+                }`}
+              >
+                <p className="text-sm font-bold text-surface-900">{method.name}</p>
+                <p className="text-xs text-surface-500 mt-0.5">
+                  {method.type === 'cash' && 'Pay with cash'}
+                  {method.type === 'card' && 'Card / Digital payment'}
+                  {method.type === 'upi' && 'Scan QR code'}
+                </p>
+              </button>
+            ))}
+          </div>
+          
           {selectedPayment === 'cash' && (
             <div className="space-y-3 animate-slide-up">
               <div>
@@ -567,20 +747,20 @@ export default function OrderPage() {
               )}
             </div>
           )}
-          {/* UPI QR */}
+          
           {selectedPayment === 'upi' && upiMethod && (
             <div className="space-y-3 animate-slide-up">
-              <div className="flex justify-center">
+              <div className="flex justify-center bg-white p-4 rounded-xl border border-surface-200">
                 <QRCode
                   value={`upi://pay?pa=${upiMethod.upiId || 'cafe@ybl'}&pn=OdooCafe&am=${totals.total}&cu=INR`}
-                  size={160}
+                  size={180}
                   showCaption={false}
                 />
               </div>
-              <p className="text-center text-sm font-bold text-surface-700">{formatCurrency(totals.total)}</p>
+              <p className="text-center text-lg font-bold text-surface-800">Scan to pay {formatCurrency(totals.total)}</p>
             </div>
           )}
-          {/* Card Input */}
+          
           {selectedPayment === 'card' && (
             <div className="animate-slide-up">
               <label className="block text-xs font-medium text-surface-600 mb-1">Transaction Reference</label>
@@ -593,24 +773,24 @@ export default function OrderPage() {
               />
             </div>
           )}
+          
+          <div className="pt-4 border-t border-surface-200">
+            <Button
+              className="w-full text-lg py-3 shadow-cafe-lg"
+              size="lg"
+              onClick={handleCompletePayment}
+              loading={paymentLoading}
+              disabled={
+                !selectedPayment || 
+                (selectedPayment === 'cash' && cashTendered !== '' && Number(cashTendered) < totals.total) ||
+                ((selectedPayment === 'card' || selectedPayment === 'upi') && !cardRef && selectedPayment === 'card')
+              }
+            >
+              Confirm Payment of {formatCurrency(totals.total)}
+            </Button>
+          </div>
         </div>
-        <div className="p-3 border-t border-cafe-crema/30 bg-white">
-          <Button
-            className="w-full text-lg shadow-cafe-lg"
-            size="lg"
-            onClick={handleCompletePayment}
-            loading={paymentLoading}
-            disabled={
-              items.length === 0 || 
-              !selectedPayment || 
-              (selectedPayment === 'cash' && cashTendered !== '' && Number(cashTendered) < totals.total) ||
-              ((selectedPayment === 'card' || selectedPayment === 'upi') && !cardRef && selectedPayment === 'card')
-            }
-          >
-            Complete Payment
-          </Button>
-        </div>
-      </div>
+      </Modal>
       {/* Coupon Modal */}
       <Modal isOpen={couponModalOpen} onClose={() => setCouponModalOpen(false)} title="Apply Coupon" size="sm">
         <div className="space-y-4">
@@ -622,6 +802,11 @@ export default function OrderPage() {
             className="w-full px-4 py-3 rounded-xl border border-surface-200 bg-surface-50 text-sm font-mono uppercase focus:outline-none focus:ring-2 focus:ring-primary-500"
           />
           <Button onClick={handleApplyCoupon} loading={couponLoading} className="w-full">Apply</Button>
+          <div className="pt-2 text-center">
+            <Link to="/backend/promotions" className="text-xs text-primary-600 hover:text-primary-800 font-medium hover:underline">
+              Manage Coupons & Promotions
+            </Link>
+          </div>
         </div>
       </Modal>
       {/* Customer Modal */}

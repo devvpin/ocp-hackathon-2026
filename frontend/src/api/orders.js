@@ -26,6 +26,7 @@ const ordersApi = {
       customerName: o.customer?.name ?? null,
       customerEmail: o.customer?.email ?? null,
       status: o.status,
+      orderType: o.orderType,
       subtotal: Number(o.subtotal),
       tax: Number(o.taxAmount),
       discount: Number(o.discountAmount),
@@ -60,6 +61,7 @@ const ordersApi = {
         customerName: o.customer?.name ?? null,
         customerEmail: o.customer?.email ?? null,
         status: o.status,
+        orderType: o.orderType,
         subtotal: Number(o.subtotal),
         tax: Number(o.taxAmount),
         discount: Number(o.discountAmount),
@@ -84,6 +86,7 @@ const ordersApi = {
     // Backend expects { tableId, customerId, items: [{productId, quantity}], couponCode? }
     const payload = {
       tableId: data.tableId || null,
+      orderType: data.orderType || 'dine_in',
       customerId: data.customerId || null,
       items: (data.items || []).map((i) => ({
         productId: i.productId,
@@ -98,6 +101,7 @@ const ordersApi = {
   async update(id, data) {
     const payload = {
       tableId: data.tableId || null,
+      orderType: data.orderType || 'dine_in',
       customerId: data.customerId || null,
       items: (data.items || []).map((i) => ({
         productId: i.productId,
@@ -132,10 +136,28 @@ const ordersApi = {
     return unwrapOne(response);
   },
 
+  async freeTable(id) {
+    const response = await api.post(`/orders/${id}/free-table`);
+    return unwrapOne(response);
+  },
+
+  async markServed(id) {
+    const response = await api.patch(`/orders/${id}/serve`);
+    return unwrapOne(response);
+  },
+
   async sendReceipt(id, email) {
     const payload = {};
     if (email) payload.email = email;
     const response = await api.post(`/orders/${id}/send-receipt`, payload);
+    return unwrapOne(response);
+  },
+
+  async refund(id, amount = null, reason = '') {
+    const payload = {};
+    if (amount) payload.amount = amount;
+    if (reason) payload.reason = reason;
+    const response = await api.post(`/orders/${id}/refund`, payload);
     return unwrapOne(response);
   },
 };
