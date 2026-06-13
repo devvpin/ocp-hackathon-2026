@@ -1,8 +1,7 @@
 /**
- * reports.routes.js — Reports API routes.
- * Implemented in Phase 9.
+ * reports.routes.js - reports API routes.
  */
 const { Router } = require('express');
 const router = Router();
-// Routes implemented in Phase 9
+
 module.exports = router;

@@ -1,8 +1,7 @@
 /**
- * tables.routes.js — Tables API routes.
- * Implemented in Phase 4.
+ * tables.routes.js - tables API routes.
  */
 const { Router } = require('express');
 const router = Router();
-// Routes implemented in Phase 4
+
 module.exports = router;

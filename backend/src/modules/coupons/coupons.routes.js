@@ -1,8 +1,7 @@
 /**
- * coupons.routes.js — Coupons API routes.
- * Implemented in Phase 5.
+ * coupons.routes.js - coupons API routes.
  */
 const { Router } = require('express');
 const router = Router();
-// Routes implemented in Phase 5
+
 module.exports = router;

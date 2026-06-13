@@ -1,8 +1,7 @@
 /**
- * orders.routes.js — Orders API routes.
- * Implemented in Phase 6.
+ * orders.routes.js - orders API routes.
  */
 const { Router } = require('express');
 const router = Router();
-// Routes implemented in Phase 6
+
 module.exports = router;
