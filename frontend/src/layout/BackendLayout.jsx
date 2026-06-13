@@ -1,4 +1,4 @@
-import { Outlet, NavLink, useNavigate } from 'react-router-dom';
+import { Outlet, NavLink, Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import Logo from '../components/Logo';
 import { CAFE_NAME } from '../config/brand';
@@ -29,6 +29,15 @@ export default function BackendLayout() {
           <p className="text-[11px] font-sans font-medium text-cafe-foam/70 uppercase tracking-widest">Admin Panel</p>
         </div>
         <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
+          <Link
+            to="/pos/tables"
+            className="flex items-center gap-3 px-3 py-3 mb-2 rounded-cafe text-sm font-sans text-cafe-foam/80 hover:bg-cafe-roast/30 hover:text-cafe-foam border-l-4 border-transparent transition-all duration-150"
+          >
+            <svg className="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+            </svg>
+            <span className="truncate">Back to Dashboard</span>
+          </Link>
           {navItems.map((item) => (
             <NavLink
               key={item.to}

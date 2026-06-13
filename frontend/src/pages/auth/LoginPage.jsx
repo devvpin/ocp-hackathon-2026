@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import Button from '../../components/Button';
@@ -89,12 +89,6 @@ export default function LoginPage() {
       </form>
       <p className="mt-6 text-center text-sm font-sans text-cafe-grounds/70">
         Employees should use credentials provided by an admin.
-      </p>
-      <p className="mt-2 text-center text-sm font-sans text-cafe-grounds/70">
-        Need an account?{' '}
-        <Link to="/auth/signup" className="text-cafe-roast hover:text-cafe-espresso underline font-medium">
-          Create one
-        </Link>
       </p>
     </div>
   );
