@@ -65,6 +65,10 @@ function errorHandler(err, req, res, next) {
     // Record not found (Prisma)
     return sendError(res, 404, 'NOT_FOUND', 'The requested record was not found.');
   }
+  if (err.code === 'P2003') {
+    // Foreign key constraint violation
+    return sendError(res, 400, 'BAD_REQUEST', 'A referenced record does not exist.');
+  }
 
   // JWT errors (should be caught by requireAuth, but safety net)
   if (err.name === 'JsonWebTokenError' || err.name === 'TokenExpiredError') {

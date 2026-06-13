@@ -46,6 +46,13 @@ enum PromotionAppliedTo {
   order
 }
 
+enum BookingStatus {
+  pending
+  confirmed
+  cancelled
+  completed
+}
+
 model User {
   id           String    @id @default(uuid()) @db.Uuid
   name         String    @db.VarChar(255)
@@ -109,13 +116,14 @@ model Floor {
 }
 
 model DiningTable {
-  id          String  @id @default(uuid()) @db.Uuid
-  floorId     String  @map("floor_id") @db.Uuid
-  floor       Floor   @relation(fields: [floorId], references: [id], onDelete: Cascade)
-  tableNumber Int     @map("table_number")
-  seatCount   Int     @map("seat_count")
-  isActive    Boolean @default(true) @map("is_active")
+  id          String    @id @default(uuid()) @db.Uuid
+  floorId     String    @map("floor_id") @db.Uuid
+  floor       Floor     @relation(fields: [floorId], references: [id], onDelete: Cascade)
+  tableNumber Int       @map("table_number")
+  seatCount   Int       @map("seat_count")
+  isActive    Boolean   @default(true) @map("is_active")
   orders      Order[]
+  bookings    Booking[]
 
   @@unique([floorId, tableNumber])
   @@index([floorId])
@@ -128,36 +136,40 @@ model Session {
   openedByUser   User      @relation("OpenedSessions", fields: [openedBy], references: [id])
   openedAt       DateTime  @default(now()) @map("opened_at")
   closedAt       DateTime? @map("closed_at")
+  isOpen         Boolean   @default(true) @map("is_open")
   closingRevenue Decimal?  @map("closing_revenue") @db.Decimal(10, 2)
   orders         Order[]
 
   @@index([openedBy])
   @@index([closedAt])
+  @@index([isOpen])
   @@map("sessions")
 }
 
 model Customer {
-  id        String   @id @default(uuid()) @db.Uuid
-  name      String   @db.VarChar(255)
-  email     String?  @db.VarChar(255)
-  phone     String?  @db.VarChar(50)
-  createdAt DateTime @default(now()) @map("created_at")
+  id        String    @id @default(uuid()) @db.Uuid
+  name      String    @db.VarChar(255)
+  email     String?   @unique @db.VarChar(255)
+  phone     String?   @db.VarChar(50)
+  createdAt DateTime  @default(now()) @map("created_at")
   orders    Order[]
+  bookings  Booking[]
 
-  @@index([email])
   @@index([phone])
   @@map("customers")
 }
 
 model Order {
   id               String             @id @default(uuid()) @db.Uuid
-  orderNumber      Int                @default(autoincrement()) @map("order_number")
+  orderNumber      Int                @unique @default(autoincrement()) @map("order_number")
   sessionId        String             @map("session_id") @db.Uuid
   session          Session            @relation(fields: [sessionId], references: [id])
   tableId          String?            @map("table_id") @db.Uuid
   table            DiningTable?       @relation(fields: [tableId], references: [id])
   customerId       String?            @map("customer_id") @db.Uuid
   customer         Customer?          @relation(fields: [customerId], references: [id])
+  couponId         String?            @map("coupon_id") @db.Uuid
+  coupon           Coupon?            @relation(fields: [couponId], references: [id])
   employeeId       String             @map("employee_id") @db.Uuid
   employee         User               @relation("EmployeeOrders", fields: [employeeId], references: [id])
   status           OrderStatus        @default(draft)
@@ -169,11 +181,13 @@ model Order {
   paymentReference String?            @map("payment_reference") @db.VarChar(255)
   createdAt        DateTime           @default(now()) @map("created_at")
   paidAt           DateTime?          @map("paid_at")
+  receiptSentAt    DateTime?          @map("receipt_sent_at")
   items            OrderItem[]
 
   @@index([sessionId])
   @@index([tableId])
   @@index([customerId])
+  @@index([couponId])
   @@index([employeeId])
   @@index([status])
   @@index([createdAt])
@@ -207,6 +221,7 @@ model Coupon {
   discountType  DiscountType @map("discount_type")
   discountValue Decimal      @map("discount_value") @db.Decimal(10, 2)
   isActive      Boolean      @default(true) @map("is_active")
+  orders        Order[]
 
   @@index([isActive])
   @@map("coupons")
@@ -228,4 +243,24 @@ model Promotion {
   @@index([appliedTo])
   @@index([isActive])
   @@map("promotions")
+}
+
+model Booking {
+  id          String        @id @default(uuid()) @db.Uuid
+  customerId  String?       @map("customer_id") @db.Uuid
+  customer    Customer?     @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  tableId     String?       @map("table_id") @db.Uuid
+  table       DiningTable?  @relation(fields: [tableId], references: [id], onDelete: SetNull)
+  bookingDate DateTime      @map("booking_date")
+  guestCount  Int           @map("guest_count")
+  status      BookingStatus @default(pending)
+  notes       String?
+  createdAt   DateTime      @default(now()) @map("created_at")
+  updatedAt   DateTime      @updatedAt @map("updated_at")
+
+  @@index([customerId])
+  @@index([tableId])
+  @@index([bookingDate])
+  @@index([status])
+  @@map("bookings")
 }
