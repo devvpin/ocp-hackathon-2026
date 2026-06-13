@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="Layer_1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 623 623">
+  <defs>
+    <style>
+      .cls-1 {
+        fill: #fff7e8;
+        font-family: Ananda, Ananda;
+        font-size: 198.7px;
+      }
+
+      .cls-2 {
+        fill: #713105;
+      }
+    </style>
+  </defs>
+  <rect class="cls-2" width="623" height="623" rx="141.3" ry="141.3"/>
+  <text class="cls-1" transform="translate(46.8 283.8)"><tspan x="0" y="0">Odoo</tspan></text>
+  <text class="cls-1" transform="translate(197.4 486)"><tspan x="0" y="0">Cafe</tspan></text>
+</svg>
