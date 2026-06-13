@@ -56,6 +56,14 @@ function errorHandler(err, req, res, next) {
     return sendError(res, err.statusCode, err.code, err.message, err.details);
   }
 
+  if (err.name === 'ZodError' && Array.isArray(err.errors)) {
+    const details = err.errors.map((e) => ({
+      field: e.path.join('.'),
+      message: e.message,
+    }));
+    return sendError(res, 422, 'VALIDATION_ERROR', 'Request validation failed.', details);
+  }
+
   // Prisma known error codes
   if (err.code === 'P2002') {
     // Unique constraint violation
