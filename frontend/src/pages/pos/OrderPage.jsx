@@ -76,7 +76,7 @@ export default function OrderPage() {
             name: i.name,
             price: i.price,
             quantity: i.quantity,
-            tax: 0,
+            tax: i.tax || 0,
           })),
           customer: order.customerId ? { id: order.customerId, name: order.customerName } : null,
           orderId: order.id,

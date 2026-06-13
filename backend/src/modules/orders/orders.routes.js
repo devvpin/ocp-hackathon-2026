@@ -227,6 +227,21 @@ function broadcastTable(tableId, occupied, orderId = null) {
   broadcast('table:status_changed', { tableId, occupied, orderId });
 }
 
+async function updateTableStatus(tableId) {
+  if (!tableId) return;
+  const draftOrder = await prisma.order.findFirst({
+    where: { tableId, status: 'draft' },
+    select: { id: true },
+    orderBy: { createdAt: 'desc' },
+  });
+
+  if (draftOrder) {
+    broadcastTable(tableId, true, draftOrder.id);
+  } else {
+    broadcastTable(tableId, false, null);
+  }
+}
+
 router.get('/', requireAuth, async (req, res, next) => {
   try {
     const pagination = parsePagination(req.query);
@@ -278,16 +293,7 @@ router.post('/', requireAuth, requireRole('admin', 'employee'), validate(orderWr
     const calculation = await calculateOrder(req.validated.body);
     const tableId = req.validated.body.tableId || null;
     const order = await prisma.$transaction(async (tx) => {
-      if (tableId) {
-        const existing = await tx.order.findFirst({
-          where: { tableId, status: 'draft' },
-          select: { id: true },
-        });
-
-        if (existing) {
-          throw new AppError('TABLE_OCCUPIED', 'Table already has a draft order.');
-        }
-      }
+      // Removed check for existing draft order to allow multiple transactions per table
 
       return tx.order.create({
         data: {
@@ -338,7 +344,7 @@ router.patch('/:id', requireAuth, requireRole('admin', 'employee'), validate(idP
       });
     });
 
-    if (existing.tableId && existing.tableId !== order.tableId) broadcastTable(existing.tableId, false, null);
+    if (existing.tableId && existing.tableId !== order.tableId) await updateTableStatus(existing.tableId);
     broadcastTable(order.tableId, true, order.id);
     return sendSuccess(res, 200, serializeOrder(order));
   } catch (err) {
@@ -351,10 +357,15 @@ router.patch('/:id/pay', requireAuth, requireRole('admin', 'employee'), validate
     await getOpenSession();
     const order = await getDraftOrder(req.validated.params.id);
     assertOrderOwner(order, req.user);
-    const { paymentMethod, paymentReference, cashReceived } = req.validated.body;
+    let { paymentMethod, paymentReference, cashReceived } = req.validated.body;
 
-    if (paymentMethod === 'cash' && Number(cashReceived || 0) < Number(order.total)) {
-      throw new AppError('BAD_REQUEST', 'Cash received cannot be less than order total.');
+    if (paymentMethod === 'cash') {
+      if (cashReceived === undefined || cashReceived === null) {
+        cashReceived = Number(order.total);
+      }
+      if (Number(cashReceived) < Number(order.total) - 0.01) {
+        throw new AppError('BAD_REQUEST', 'Cash received cannot be less than order total.');
+      }
     }
     if ((paymentMethod === 'card' || paymentMethod === 'upi') && !paymentReference) {
       throw new AppError('BAD_REQUEST', 'Payment reference is required for card and UPI payments.');
@@ -381,7 +392,7 @@ router.patch('/:id/pay', requireAuth, requireRole('admin', 'employee'), validate
       });
     });
 
-    broadcastTable(paid.tableId, false, paid.id);
+    await updateTableStatus(paid.tableId);
     return sendSuccess(res, 200, {
       ...serializeOrder(paid),
       changeAmount: paymentMethod === 'cash' ? money(Number(cashReceived) - Number(order.total)) : undefined,
@@ -401,7 +412,7 @@ router.patch('/:id/cancel', requireAuth, requireRole('admin', 'employee'), valid
       include: orderInclude(),
     });
 
-    broadcastTable(cancelled.tableId, false, cancelled.id);
+    await updateTableStatus(cancelled.tableId);
     return sendSuccess(res, 200, serializeOrder(cancelled));
   } catch (err) {
     return next(err);
@@ -413,7 +424,7 @@ router.delete('/:id', requireAuth, requireRole('admin', 'employee'), validate(id
     const order = await getDraftOrder(req.validated.params.id);
     assertOrderOwner(order, req.user);
     await prisma.order.delete({ where: { id: order.id } });
-    broadcastTable(order.tableId, false, null);
+    await updateTableStatus(order.tableId);
     return sendSuccess(res, 200, { deleted: true });
   } catch (err) {
     return next(err);

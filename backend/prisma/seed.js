@@ -1,4 +1,5 @@
 'use strict';
+require('dotenv').config();
 
 const bcrypt = require('bcryptjs');
 const prisma = require('../src/config/db');
