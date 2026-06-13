@@ -1,7 +1,22 @@
-import { Navigate } from 'react-router-dom';
+import { useEffect } from 'react';
+import { Navigate, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 export default function ProtectedRoute({ children, requireAdmin = false }) {
-  const { isAuthenticated, isAdmin, loading } = useAuth();
+  const { isAuthenticated, isAdmin, loading, revalidate } = useAuth();
+  const navigate = useNavigate();
+  // Re-validate auth when the page is restored from bfcache (back/forward navigation)
+  useEffect(() => {
+    const handlePageShow = (event) => {
+      if (event.persisted) {
+        // Page was restored from bfcache — re-check authentication
+        revalidate().catch(() => {
+          navigate('/auth/login', { replace: true });
+        });
+      }
+    };
+    window.addEventListener('pageshow', handlePageShow);
+    return () => window.removeEventListener('pageshow', handlePageShow);
+  }, [revalidate, navigate]);
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-surface-50">

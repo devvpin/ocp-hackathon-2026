@@ -58,12 +58,31 @@ export function AuthProvider({ children }) {
     setUser(null);
   }, []);
 
+  const revalidate = useCallback(async () => {
+    const currentToken = getToken();
+    if (!currentToken) {
+      clearAuth();
+      setTokenState(null);
+      setUser(null);
+      throw new Error('No token');
+    }
+    try {
+      const res = await authApi.getCurrentUser();
+      setUser(res.data.user);
+    } catch {
+      clearAuth();
+      setTokenState(null);
+      setUser(null);
+      throw new Error('Token invalid');
+    }
+  }, []);
+
   const isAdmin = user?.role === 'admin';
   const isAuthenticated = !!token && !!user;
 
   return (
     <AuthContext.Provider
-      value={{ user, token, loading, isAuthenticated, isAdmin, login, signup, logout }}
+      value={{ user, token, loading, isAuthenticated, isAdmin, login, signup, logout, revalidate }}
     >
       {children}
     </AuthContext.Provider>

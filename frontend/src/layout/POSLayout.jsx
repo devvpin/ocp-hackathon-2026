@@ -41,17 +41,14 @@ export default function POSLayout() {
           <span className="text-lg font-bold text-surface-900 hidden sm:block">Odoo Cafe</span>
         </Link>
         <nav className="hidden md:flex items-center gap-1 flex-shrink-0">
-          <NavLink to="/pos/tables" className={({ isActive }) => `px-3 py-2 rounded-lg text-sm font-medium transition-colors ${isActive ? 'bg-primary-50 text-primary-700' : 'text-surface-600 hover:bg-surface-100'}`}>
-            POS Order
+          <NavLink to="/pos/tables" end className={({ isActive }) => `px-3 py-2 rounded-lg text-sm font-medium transition-colors ${isActive ? 'bg-primary-50 text-primary-700' : 'text-surface-600 hover:bg-surface-100'}`}>
+            Tables
           </NavLink>
           <NavLink to="/pos/orders" className={({ isActive }) => `px-3 py-2 rounded-lg text-sm font-medium transition-colors ${isActive ? 'bg-primary-50 text-primary-700' : 'text-surface-600 hover:bg-surface-100'}`}>
             Orders
           </NavLink>
           <NavLink to="/pos/customers" className={({ isActive }) => `px-3 py-2 rounded-lg text-sm font-medium transition-colors ${isActive ? 'bg-primary-50 text-primary-700' : 'text-surface-600 hover:bg-surface-100'}`}>
             Customers
-          </NavLink>
-          <NavLink to="/pos/tables" end className={({ isActive }) => `px-3 py-2 rounded-lg text-sm font-medium transition-colors ${isActive ? 'bg-primary-50 text-primary-700' : 'text-surface-600 hover:bg-surface-100'}`}>
-            Table View
           </NavLink>
         </nav>
         <div className="flex-1 max-w-sm mx-4">

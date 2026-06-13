@@ -211,6 +211,17 @@ async function getDraftOrder(id) {
   return order;
 }
 
+/**
+ * Verifies that the requesting user owns the order or is an admin.
+ * Prevents URL manipulation attacks where a user changes the orderId in the URL.
+ */
+function assertOrderOwner(order, reqUser) {
+  if (reqUser.role === 'admin') return;
+  if (order.employeeId !== reqUser.sub) {
+    throw new AppError('FORBIDDEN', 'You do not have permission to modify this order.');
+  }
+}
+
 function broadcastTable(tableId, occupied, orderId = null) {
   if (!tableId) return;
   broadcast('table:status_changed', { tableId, occupied, orderId });
@@ -307,6 +318,7 @@ router.patch('/:id', requireAuth, requireRole('admin', 'employee'), validate(idP
   try {
     await getOpenSession();
     const existing = await getDraftOrder(req.validated.params.id);
+    assertOrderOwner(existing, req.user);
     const calculation = await calculateOrder(req.validated.body);
     const order = await prisma.$transaction(async (tx) => {
       await tx.orderItem.deleteMany({ where: { orderId: existing.id } });
@@ -338,6 +350,7 @@ router.patch('/:id/pay', requireAuth, requireRole('admin', 'employee'), validate
   try {
     await getOpenSession();
     const order = await getDraftOrder(req.validated.params.id);
+    assertOrderOwner(order, req.user);
     const { paymentMethod, paymentReference, cashReceived } = req.validated.body;
 
     if (paymentMethod === 'cash' && Number(cashReceived || 0) < Number(order.total)) {
@@ -381,6 +394,7 @@ router.patch('/:id/pay', requireAuth, requireRole('admin', 'employee'), validate
 router.patch('/:id/cancel', requireAuth, requireRole('admin', 'employee'), validate(idParamSchema, 'params'), async (req, res, next) => {
   try {
     const order = await getDraftOrder(req.validated.params.id);
+    assertOrderOwner(order, req.user);
     const cancelled = await prisma.order.update({
       where: { id: order.id },
       data: { status: 'cancelled' },
@@ -397,6 +411,7 @@ router.patch('/:id/cancel', requireAuth, requireRole('admin', 'employee'), valid
 router.delete('/:id', requireAuth, requireRole('admin', 'employee'), validate(idParamSchema, 'params'), async (req, res, next) => {
   try {
     const order = await getDraftOrder(req.validated.params.id);
+    assertOrderOwner(order, req.user);
     await prisma.order.delete({ where: { id: order.id } });
     broadcastTable(order.tableId, false, null);
     return sendSuccess(res, 200, { deleted: true });
@@ -438,25 +453,64 @@ router.post('/:id/send-receipt', requireAuth, requireRole('admin', 'employee'), 
     const to = req.validated.body.email || order.customer?.email;
     if (!to) throw new AppError('BAD_REQUEST', 'Receipt email address is required.');
 
+    function inr(val) { return '₹' + Number(val || 0).toFixed(2); }
     const rows = order.items.map((item) => `
-      <tr><td>${escapeHtml(item.productName)}</td><td>${item.quantity}</td><td>${Number(item.unitPrice).toFixed(2)}</td><td>${Number(item.lineTotal).toFixed(2)}</td></tr>
+      <tr>
+        <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;color:#334155">${escapeHtml(item.productName)}</td>
+        <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;text-align:center;color:#475569">${item.quantity}</td>
+        <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;text-align:right;color:#475569">${inr(item.unitPrice)}</td>
+        <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;text-align:right;font-weight:600;color:#1e293b">${inr(item.lineTotal)}</td>
+      </tr>
     `).join('');
+    const dateStr = order.createdAt.toLocaleDateString('en-IN', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
     const html = `
-      <div style="font-family:Arial,sans-serif;color:#111827">
-        <h2>${escapeHtml(env.CAFE_NAME)}</h2>
-        <p><strong>Order:</strong> #${order.orderNumber}</p>
-        <p><strong>Date:</strong> ${order.createdAt.toISOString()}</p>
-        <p><strong>Table:</strong> ${escapeHtml(order.table?.tableNumber ?? 'N/A')}</p>
-        <p><strong>Customer:</strong> ${escapeHtml(order.customer?.name ?? 'Guest')}</p>
-        <table cellpadding="8" cellspacing="0" border="1" style="border-collapse:collapse">
-          <thead><tr><th>Item</th><th>Qty</th><th>Unit</th><th>Total</th></tr></thead>
-          <tbody>${rows}</tbody>
-        </table>
-        <p>Subtotal: ${Number(order.subtotal).toFixed(2)}</p>
-        <p>Tax: ${Number(order.taxAmount).toFixed(2)}</p>
-        <p>Discount: ${Number(order.discountAmount).toFixed(2)}</p>
-        <h3>Total: ${Number(order.total).toFixed(2)}</h3>
-        <p>Payment: ${order.paymentMethod ?? 'Unpaid'}</p>
+      <div style="font-family:'Segoe UI',Arial,sans-serif;max-width:520px;margin:0 auto;background:#ffffff;border-radius:12px;overflow:hidden;border:1px solid #e2e8f0">
+        <div style="background:linear-gradient(135deg,#4f46e5,#7c3aed);padding:28px 24px;text-align:center">
+          <h1 style="margin:0;color:#fff;font-size:22px;font-weight:700">${escapeHtml(env.CAFE_NAME)}</h1>
+          <p style="margin:6px 0 0;color:#c7d2fe;font-size:13px">Order Receipt</p>
+        </div>
+        <div style="padding:24px">
+          <div style="display:flex;justify-content:space-between;margin-bottom:16px">
+            <div>
+              <p style="margin:0 0 4px;font-size:12px;color:#94a3b8;text-transform:uppercase;letter-spacing:0.05em">Order Number</p>
+              <p style="margin:0;font-size:18px;font-weight:700;color:#1e293b">#${order.orderNumber}</p>
+            </div>
+            <div style="text-align:right">
+              <p style="margin:0 0 4px;font-size:12px;color:#94a3b8;text-transform:uppercase;letter-spacing:0.05em">Date</p>
+              <p style="margin:0;font-size:13px;color:#475569">${dateStr}</p>
+            </div>
+          </div>
+          <div style="background:#f8fafc;border-radius:8px;padding:12px 14px;margin-bottom:18px">
+            <table style="width:100%;font-size:13px;color:#64748b" cellpadding="0" cellspacing="0">
+              <tr><td style="padding:3px 0"><strong>Table:</strong></td><td style="text-align:right">${escapeHtml(order.table?.tableNumber ?? 'N/A')}</td></tr>
+              <tr><td style="padding:3px 0"><strong>Customer:</strong></td><td style="text-align:right">${escapeHtml(order.customer?.name ?? 'Guest')}</td></tr>
+              <tr><td style="padding:3px 0"><strong>Payment:</strong></td><td style="text-align:right;text-transform:capitalize">${order.paymentMethod ?? 'Unpaid'}</td></tr>
+            </table>
+          </div>
+          <table cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse;font-size:13px">
+            <thead>
+              <tr style="background:#f1f5f9">
+                <th style="padding:10px 14px;text-align:left;color:#64748b;font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:0.05em">Item</th>
+                <th style="padding:10px 14px;text-align:center;color:#64748b;font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:0.05em">Qty</th>
+                <th style="padding:10px 14px;text-align:right;color:#64748b;font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:0.05em">Unit Price</th>
+                <th style="padding:10px 14px;text-align:right;color:#64748b;font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:0.05em">Total</th>
+              </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+          </table>
+          <div style="border-top:2px solid #e2e8f0;margin-top:12px;padding-top:12px">
+            <table style="width:100%;font-size:13px" cellpadding="0" cellspacing="0">
+              <tr><td style="padding:4px 0;color:#64748b">Subtotal</td><td style="text-align:right;color:#475569">${inr(order.subtotal)}</td></tr>
+              <tr><td style="padding:4px 0;color:#64748b">Tax</td><td style="text-align:right;color:#475569">${inr(order.taxAmount)}</td></tr>
+              ${Number(order.discountAmount) > 0 ? `<tr><td style="padding:4px 0;color:#16a34a">Discount</td><td style="text-align:right;color:#16a34a">-${inr(order.discountAmount)}</td></tr>` : ''}
+              <tr><td style="padding:10px 0 4px;font-size:18px;font-weight:700;color:#1e293b;border-top:2px solid #e2e8f0">Total</td><td style="padding:10px 0 4px;text-align:right;font-size:18px;font-weight:700;color:#1e293b;border-top:2px solid #e2e8f0">${inr(order.total)}</td></tr>
+            </table>
+          </div>
+        </div>
+        <div style="background:#f8fafc;padding:16px 24px;text-align:center;border-top:1px solid #e2e8f0">
+          <p style="margin:0;font-size:12px;color:#94a3b8">Thank you for dining with us! 🙏</p>
+          <p style="margin:4px 0 0;font-size:11px;color:#cbd5e1">${escapeHtml(env.CAFE_NAME)}</p>
+        </div>
       </div>
     `;
 

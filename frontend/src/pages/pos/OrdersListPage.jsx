@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import ordersApi from '../../api/orders';
 import { useToast } from '../../context/ToastContext';
@@ -17,6 +17,7 @@ export default function OrdersListPage() {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [deleteId, setDeleteId] = useState(null);
   const fetchData = async () => {
@@ -28,12 +29,36 @@ export default function OrdersListPage() {
     setLoading(false);
   };
   useEffect(() => { fetchData(); }, []);
-  const filtered = orders.filter((o) =>
-    (o.customerName || '').toLowerCase().includes(search.toLowerCase()) ||
-    o.id.includes(search) ||
-    (o.date || '').includes(search)
-  );
+
+  // Stats
+  const stats = useMemo(() => {
+    const total = orders.length;
+    const draft = orders.filter((o) => o.status === 'draft').length;
+    const paid = orders.filter((o) => o.status === 'paid').length;
+    const cancelled = orders.filter((o) => o.status === 'cancelled').length;
+    const revenue = orders
+      .filter((o) => o.status === 'paid')
+      .reduce((sum, o) => sum + Number(o.total || 0), 0);
+    return { total, draft, paid, cancelled, revenue };
+  }, [orders]);
+
+  const filtered = orders.filter((o) => {
+    const matchesStatus = statusFilter === 'all' || o.status === statusFilter;
+    const matchesSearch =
+      (o.customerName || '').toLowerCase().includes(search.toLowerCase()) ||
+      String(o.orderNumber || o.id || '').includes(search) ||
+      (o.date || '').includes(search);
+    return matchesStatus && matchesSearch;
+  });
+
   const statusColors = { draft: '#F59E0B', paid: '#22C55E', cancelled: '#EF4444' };
+  const statusTabs = [
+    { key: 'all', label: 'All', count: stats.total },
+    { key: 'draft', label: 'Draft', count: stats.draft },
+    { key: 'paid', label: 'Paid', count: stats.paid },
+    { key: 'cancelled', label: 'Cancelled', count: stats.cancelled },
+  ];
+
   const handleEditOrder = (order) => {
     loadOrder({
       items: order.items.map((i) => ({
@@ -61,18 +86,67 @@ export default function OrdersListPage() {
     } catch { showError('Failed to delete order'); }
   };
   const columns = [
-    { key: 'id', label: 'Order #', sortable: true, render: (v) => <span className="font-mono font-bold text-primary-600">#{v}</span> },
+    { key: 'orderNumber', label: 'Order #', sortable: true, render: (v) => <span className="font-mono font-bold text-primary-600">#{v}</span> },
     { key: 'date', label: 'Date', sortable: true, render: (v) => formatDateTime(v) },
     { key: 'customerName', label: 'Customer', sortable: true, render: (v) => v || 'Walk-in' },
     { key: 'total', label: 'Amount', sortable: true, render: (v) => <span className="font-semibold">{formatCurrency(v)}</span> },
     { key: 'status', label: 'Status', render: (v) => <Badge color={statusColors[v]}>{v.charAt(0).toUpperCase() + v.slice(1)}</Badge> },
   ];
   return (
-    <div className="p-6 space-y-6 animate-fade-in overflow-auto h-full">
-      <div>
-        <h1 className="text-xl font-bold text-surface-900">Orders</h1>
-        <p className="text-sm text-surface-500 mt-1">View and manage all orders</p>
+    <div className="p-6 space-y-5 animate-fade-in overflow-auto h-full">
+      {/* Page Header */}
+      <div className="flex items-center gap-3">
+        <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-600/20">
+          <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+          </svg>
+        </div>
+        <div>
+          <h1 className="text-xl font-bold text-surface-900">Order Management</h1>
+          <p className="text-xs text-surface-500">View, manage, and track all orders</p>
+        </div>
       </div>
+
+      {/* Stats Cards */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="bg-white rounded-xl border border-surface-200 p-3.5">
+          <p className="text-[10px] font-bold text-surface-400 uppercase tracking-wider mb-0.5">Total Orders</p>
+          <p className="text-2xl font-extrabold text-surface-800">{stats.total}</p>
+        </div>
+        <div className="bg-gradient-to-br from-warning-50 to-amber-50 rounded-xl border border-warning-200 p-3.5">
+          <p className="text-[10px] font-bold text-warning-600 uppercase tracking-wider mb-0.5">Draft</p>
+          <p className="text-2xl font-extrabold text-warning-700">{stats.draft}</p>
+        </div>
+        <div className="bg-gradient-to-br from-success-50 to-emerald-50 rounded-xl border border-success-200 p-3.5">
+          <p className="text-[10px] font-bold text-success-600 uppercase tracking-wider mb-0.5">Paid</p>
+          <p className="text-2xl font-extrabold text-success-700">{stats.paid}</p>
+        </div>
+        <div className="bg-gradient-to-br from-indigo-50 to-purple-50 rounded-xl border border-indigo-200 p-3.5">
+          <p className="text-[10px] font-bold text-indigo-600 uppercase tracking-wider mb-0.5">Revenue</p>
+          <p className="text-xl font-extrabold text-indigo-700">{formatCurrency(stats.revenue)}</p>
+        </div>
+      </div>
+
+      {/* Status Filter Tabs */}
+      <div className="flex items-center gap-2 flex-wrap">
+        {statusTabs.map((tab) => (
+          <button
+            key={tab.key}
+            onClick={() => setStatusFilter(tab.key)}
+            className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all ${
+              statusFilter === tab.key
+                ? 'bg-surface-800 text-white shadow-md'
+                : 'bg-white text-surface-600 border border-surface-200 hover:bg-surface-50'
+            }`}
+          >
+            {tab.label}
+            <span className={`ml-1.5 text-xs ${statusFilter === tab.key ? 'text-surface-300' : 'text-surface-400'}`}>
+              {tab.count}
+            </span>
+          </button>
+        ))}
+      </div>
+
       <SearchBar value={search} onChange={setSearch} placeholder="Search by customer, order #, or date..." />
       <Table
         columns={columns}
@@ -82,7 +156,7 @@ export default function OrdersListPage() {
         onRowClick={(row) => setSelectedOrder(row)}
       />
       {/* Order Detail Modal */}
-      <Modal isOpen={!!selectedOrder} onClose={() => setSelectedOrder(null)} title={`Order #${selectedOrder?.id}`} size="md">
+      <Modal isOpen={!!selectedOrder} onClose={() => setSelectedOrder(null)} title={`Order #${selectedOrder?.orderNumber || selectedOrder?.id}`} size="md">
         {selectedOrder && (
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-3 text-sm">

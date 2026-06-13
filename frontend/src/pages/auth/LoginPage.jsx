@@ -1,15 +1,21 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import Button from '../../components/Button';
 export default function LoginPage() {
-  const { login } = useAuth();
+  const { login, isAuthenticated, loading: authLoading } = useAuth();
   const { error: showError } = useToast();
   const navigate = useNavigate();
   const [form, setForm] = useState({ email: '', password: '' });
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
+  // Redirect already-authenticated users away from the login page
+  useEffect(() => {
+    if (!authLoading && isAuthenticated) {
+      navigate('/pos', { replace: true });
+    }
+  }, [authLoading, isAuthenticated, navigate]);
   const validate = () => {
     const errs = {};
     if (!form.email.trim()) errs.email = 'Email is required';
@@ -24,7 +30,7 @@ export default function LoginPage() {
     setLoading(true);
     try {
       await login(form.email, form.password);
-      navigate('/pos');
+      navigate('/pos', { replace: true });
     } catch (err) {
       const msg = err?.response?.data?.error?.message || err?.response?.data?.message || 'Invalid credentials';
       showError(msg);

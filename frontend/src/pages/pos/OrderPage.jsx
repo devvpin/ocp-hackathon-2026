@@ -126,31 +126,48 @@ export default function OrderPage() {
     if (!selectedPayment) { showError('Select a payment method'); return; }
     setPaymentLoading(true);
     try {
-      const orderData = {
-        tableId,
-        tableNumber: tableNumber || Number(tableId),
+      // Build payload for real backend API
+      const createPayload = {
+        tableId: tableId || null,
         customerId: customer?.id || null,
-        customerName: customer?.name || 'Walk-in',
-        items: totals.items.map((i) => ({
+        items: items.map((i) => ({
           productId: i.productId,
+          quantity: i.quantity,
+        })),
+      };
+      if (coupon?.code) createPayload.couponCode = coupon.code;
+
+      const res = await ordersApi.create(createPayload);
+      const orderId = res.data.id;
+
+      // Build payment args
+      const payRef = selectedPayment === 'card' ? (cardRef || 'card-txn') : (selectedPayment === 'upi' ? 'upi-txn' : null);
+      const cashAmt = selectedPayment === 'cash' ? Number(cashTendered || totals.total) : null;
+      await ordersApi.markPaid(orderId, selectedPayment, payRef, cashAmt);
+
+      // Display receipt
+      setCompletedOrder({
+        id: orderId,
+        orderNumber: res.data.orderNumber,
+        tableNumber: tableNumber || Number(tableId),
+        customerName: customer?.name || 'Walk-in',
+        paymentMethod: selectedPayment,
+        items: totals.items.map((i) => ({
           name: i.name,
           quantity: i.quantity,
-          price: i.price,
           total: i.price * i.quantity,
         })),
         subtotal: totals.subtotal,
         tax: totals.taxTotal,
         discount: totals.totalDiscount,
         total: totals.total,
-        paymentMethod: selectedPayment,
-        status: 'paid',
-      };
-      const res = await ordersApi.create(orderData);
-      await ordersApi.markPaid(res.data.id, selectedPayment);
-      setCompletedOrder({ ...res.data, ...orderData, id: res.data.id });
+      });
       setReceiptModalOpen(true);
       success('Payment completed!');
-    } catch { showError('Payment failed'); }
+    } catch (err) {
+      const msg = err?.response?.data?.error?.message || 'Payment failed';
+      showError(msg);
+    }
     setPaymentLoading(false);
   };
   const handlePrintReceipt = () => {
