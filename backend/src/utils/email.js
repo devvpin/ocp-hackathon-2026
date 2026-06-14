@@ -5,20 +5,31 @@
  */
 
 const nodemailer = require('nodemailer');
+const { MailtrapTransport } = require('mailtrap');
 const env = require('../config/env');
 
 let transporter;
 
 /**
- * Lazily creates and caches the SMTP transporter.
- * If SMTP credentials are not configured, logs a warning in dev.
+ * Lazily creates and caches the email transporter.
+ * Prefers Mailtrap API transport and falls back to SMTP credentials when needed.
  */
 function getTransporter() {
   if (transporter) return transporter;
 
+  if (env.MAILTRAP_TOKEN) {
+    transporter = nodemailer.createTransport(
+      MailtrapTransport({
+        token: env.MAILTRAP_TOKEN,
+      })
+    );
+
+    return transporter;
+  }
+
   if (!env.SMTP_HOST || !env.SMTP_USER || !env.SMTP_PASS) {
     if (env.NODE_ENV !== 'production') {
-      console.warn('[Email] SMTP credentials are not configured — receipt emails will be skipped in dev mode.');
+      console.warn('[Email] Mailtrap token or SMTP credentials are not configured — receipt emails will be skipped in dev mode.');
     }
     return null;
   }
@@ -37,7 +48,7 @@ function getTransporter() {
 }
 
 /**
- * Sends an email. Safe to call even if SMTP is not configured (no-ops in dev).
+ * Sends an email. Safe to call even if the email transport is not configured (no-ops in dev).
  *
  * @param {{ to: string, subject: string, html: string }} options
  * @returns {Promise<void>}
@@ -45,8 +56,8 @@ function getTransporter() {
 async function sendMail({ to, subject, html }) {
   const t = getTransporter();
   if (!t) {
-    console.log(`[Email] SMTP is not configured. Receipt email to ${to} was not sent.`);
-    return { ok: false, skipped: true, message: 'SMTP is not configured. Receipt email was not sent.' };
+    console.log(`[Email] Email transport is not configured. Receipt email to ${to} was not sent.`);
+    return { ok: false, skipped: true, message: 'Email transport is not configured. Receipt email was not sent.' };
   }
 
   try {

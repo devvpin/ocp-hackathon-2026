@@ -12,7 +12,7 @@ Express + Prisma backend for the cafe POS, admin panel, and kitchen display.
 - bcrypt password hashing
 - Zod validation
 - ws WebSocket server
-- Nodemailer receipt email
+- Nodemailer receipt email via Mailtrap
 
 ## Setup
 
@@ -40,10 +40,8 @@ DATABASE_URL=postgresql://user:pass@localhost:5432/cafe_pos
 JWT_SECRET=change_me
 JWT_EXPIRY=8h
 FRONTEND_URL=http://localhost:5173
-SMTP_HOST=
-SMTP_PORT=587
-SMTP_USER=
-SMTP_PASS=
+# Mailtrap
+MAILTRAP_TOKEN=
 EMAIL_FROM=noreply@cafedemo.com
 CAFE_NAME=Odoo Cafe
 ```

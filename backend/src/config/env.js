@@ -19,6 +19,8 @@ const env = {
   RAZORPAY_KEY_ID: process.env.RAZORPAY_KEY_ID || '',
   RAZORPAY_KEY_SECRET: process.env.RAZORPAY_KEY_SECRET || '',
 
+  MAILTRAP_TOKEN: process.env.MAILTRAP_TOKEN || '',
+
   SMTP_HOST: process.env.SMTP_HOST || '',
   SMTP_PORT: parseInt(process.env.SMTP_PORT, 10) || 587,
   SMTP_USER: process.env.SMTP_USER || '',
