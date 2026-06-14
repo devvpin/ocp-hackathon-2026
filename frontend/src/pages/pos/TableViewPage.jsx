@@ -50,7 +50,15 @@ export default function TableViewPage() {
         ]);
         setFloors(fRes.data);
         setTables(tRes.data);
-        setTodaysReservations(rRes);
+        // Backend may return { data: [], total } or a plain array – normalize to array
+        const reservationsArr = Array.isArray(rRes)
+          ? rRes
+          : Array.isArray(rRes?.data)
+            ? rRes.data
+            : Array.isArray(rRes?.reservations)
+              ? rRes.reservations
+              : [];
+        setTodaysReservations(reservationsArr);
         if (fRes.data.length && !activeFloor) setActiveFloor(fRes.data[0].id);
       } catch { showError('Failed to load tables'); }
       setLoading(false);
@@ -195,7 +203,7 @@ export default function TableViewPage() {
               const tStatus = table.tableStatus || 'available';
               const isOccupied = tStatus !== 'available';
 
-              const hasReservation = todaysReservations.some(
+              const hasReservation = Array.isArray(todaysReservations) && todaysReservations.some(
                 r => r.tableId === table.id && ['pending', 'confirmed', 'arrived'].includes(r.status)
               );
 

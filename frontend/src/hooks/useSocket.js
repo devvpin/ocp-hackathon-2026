@@ -3,6 +3,7 @@ import { useEffect, useRef, useCallback } from 'react';
 export default function useSocket(url, onMessage) {
   const wsRef = useRef(null);
   const reconnectRef = useRef(null);
+  const mountedRef = useRef(false);
 
   const savedCallback = useRef(onMessage);
 
@@ -11,6 +12,7 @@ export default function useSocket(url, onMessage) {
   }, [onMessage]);
 
   const connect = useCallback(() => {
+    if (!mountedRef.current) return;
     try {
       const apiBase = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000/api';
       const derivedWs = apiBase.replace(/^http/, 'ws').replace(/\/api\/?$/, '/ws');
@@ -31,6 +33,7 @@ export default function useSocket(url, onMessage) {
       };
 
       wsRef.current.onclose = () => {
+        if (!mountedRef.current) return;
         console.log('[WS] Disconnected, reconnecting in 3s...');
         reconnectRef.current = setTimeout(connect, 3000);
       };
@@ -40,14 +43,18 @@ export default function useSocket(url, onMessage) {
       };
     } catch {
       // WebSocket not available, retry
-      reconnectRef.current = setTimeout(connect, 5000);
+      if (mountedRef.current) {
+        reconnectRef.current = setTimeout(connect, 5000);
+      }
     }
   }, [url]);
 
   useEffect(() => {
+    mountedRef.current = true;
     connect();
 
     return () => {
+      mountedRef.current = false;
       if (reconnectRef.current) clearTimeout(reconnectRef.current);
       wsRef.current?.close();
     };
