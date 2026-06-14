@@ -18,6 +18,10 @@ export default function TableViewPage() {
   const [activeFloor, setActiveFloor] = useState(null);
   const [loading, setLoading] = useState(true);
   const [todaysReservations, setTodaysReservations] = useState([]);
+  const [now, setNow] = useState(() => Date.now());
+
+  // Show the "Reserved" badge this many ms before the booking time
+  const RESERVATION_WINDOW_MS = 30 * 60 * 1000; // 30 minutes
 
   useSocket(null, (msg) => {
     if (msg.event === 'table:status_changed') {
@@ -38,6 +42,12 @@ export default function TableViewPage() {
       );
     }
   });
+
+  // Tick every minute so the badge appears/disappears automatically
+  useEffect(() => {
+    const ticker = setInterval(() => setNow(Date.now()), 60_000);
+    return () => clearInterval(ticker);
+  }, []);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -203,9 +213,16 @@ export default function TableViewPage() {
               const tStatus = table.tableStatus || 'available';
               const isOccupied = tStatus !== 'available';
 
-              const hasReservation = Array.isArray(todaysReservations) && todaysReservations.some(
-                r => r.tableId === table.id && ['pending', 'confirmed', 'arrived'].includes(r.status)
-              );
+              // Badge shows 30 min before the booking time through the booking time
+              const upcomingReservation = Array.isArray(todaysReservations)
+                ? todaysReservations.find((r) => {
+                    if (r.tableId !== table.id) return false;
+                    if (!['pending', 'confirmed', 'arrived'].includes(r.status)) return false;
+                    const bookingMs = new Date(r.bookingDate).getTime();
+                    return now >= bookingMs - RESERVATION_WINDOW_MS && now <= bookingMs;
+                  })
+                : null;
+              const hasReservation = Boolean(upcomingReservation);
 
               return (
                 <button
@@ -220,7 +237,7 @@ export default function TableViewPage() {
                   )}
 
                   {hasReservation && (
-                    <div className="absolute top-2.5 left-2.5">
+                    <div className="absolute top-2.5 left-2.5" title={`Reserved at ${new Date(upcomingReservation.bookingDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`}>
                       <span className="px-1.5 py-0.5 bg-blue-500 text-white text-[9px] rounded font-bold uppercase tracking-wide shadow-sm">
                         Reserved
                       </span>
