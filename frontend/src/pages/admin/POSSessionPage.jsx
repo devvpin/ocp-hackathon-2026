@@ -5,12 +5,23 @@ import { useToast } from '../../context/ToastContext';
 import Button from '../../components/Button';
 import Skeleton from '../../components/Skeleton';
 import { formatDateTime, formatDuration, formatCurrency } from '../../utils/formatters';
+import reportsApi from '../../api/reports';
 export default function POSSessionPage() {
     const { session, loading, fetchSession, openSession, closeSession } = useSession();
     const { success, error: showError } = useToast();
     const navigate = useNavigate();
     const [actionLoading, setActionLoading] = useState(false);
+    const [sessionStats, setSessionStats] = useState({ revenue: 0, totalOrders: 0 });
     useEffect(() => { fetchSession(); }, [fetchSession]);
+    useEffect(() => {
+        if (!session?.id) return;
+        reportsApi.getSummary({ sessionId: session.id })
+            .then((res) => setSessionStats({
+                revenue: res.data?.revenue || 0,
+                totalOrders: res.data?.totalOrders || 0,
+            }))
+            .catch(() => {});
+    }, [session?.id]);
     const handleOpen = async () => {
         setActionLoading(true);
         try {
@@ -60,7 +71,7 @@ export default function POSSessionPage() {
                     </div>
                     <div className="p-4 bg-surface-50 rounded-xl">
                         <p className="text-xs text-surface-500 font-medium mb-1">Total Revenue</p>
-                        <p className="text-sm font-semibold text-surface-800">{formatCurrency(session?.totalRevenue)}</p>
+                        <p className="text-sm font-semibold text-surface-800">{formatCurrency(session?.isOpen ? sessionStats.revenue : session?.closingRevenue)}</p>
                     </div>
                 </div>
                 {!session?.isOpen && session?.closedAt && (
@@ -69,11 +80,11 @@ export default function POSSessionPage() {
                         <div className="grid grid-cols-3 gap-4">
                             <div>
                                 <p className="text-xs text-primary-600">Total Orders</p>
-                                <p className="text-lg font-bold text-primary-900">{session?.totalOrders || 0}</p>
+                                <p className="text-lg font-bold text-primary-900">{sessionStats.totalOrders}</p>
                             </div>
                             <div>
                                 <p className="text-xs text-primary-600">Total Revenue</p>
-                                <p className="text-lg font-bold text-primary-900">{formatCurrency(session?.totalRevenue)}</p>
+                                <p className="text-lg font-bold text-primary-900">{formatCurrency(session?.closingRevenue)}</p>
                             </div>
                             <div>
                                 <p className="text-xs text-primary-600">Session Duration</p>

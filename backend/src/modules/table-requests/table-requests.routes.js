@@ -9,6 +9,7 @@ const validate = require('../../middleware/validate');
 const { sendSuccess } = require('../../utils/response');
 const { AppError } = require('../../middleware/errorHandler');
 const { broadcast } = require('../../websocket');
+const { logActivity } = require('../../utils/activityLog');
 
 const router = Router();
 
@@ -68,11 +69,11 @@ router.patch('/:id/resolve', requireAuth, requireRole('admin', 'employee'), vali
       }
     });
 
-    // Broadcast that request was resolved
     broadcast('table:request_resolved', {
       requestId: updated.id,
       tableId: updated.tableId,
     });
+    logActivity({ userId: req.user.sub, action: 'table_request.resolved', entityType: 'table_request', entityId: updated.id, metadata: { type: tableRequest.type, tableId: updated.tableId } });
 
     return sendSuccess(res, 200, {
       id: updated.id,

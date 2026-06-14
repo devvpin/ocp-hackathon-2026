@@ -14,17 +14,17 @@ import KDSLayout from './layout/KDSLayout';
 // Auth Pages
 import LoginPage from './pages/auth/LoginPage';
 
-// Backend Pages
-import ProductsPage from './pages/backend/ProductsPage';
-import CategoriesPage from './pages/backend/CategoriesPage';
-import PaymentMethodsPage from './pages/backend/PaymentMethodsPage';
-import TablesPage from './pages/backend/TablesPage';
-import PromotionsPage from './pages/backend/PromotionsPage';
-import UsersPage from './pages/backend/UsersPage';
-import POSSessionPage from './pages/backend/POSSessionPage';
-import ReportsPage from './pages/backend/ReportsPage';
-import ReservationsPage from './pages/backend/ReservationsPage';
-import DashboardPage from './pages/backend/DashboardPage';
+// Admin Pages
+import ProductsPage from './pages/admin/ProductsPage';
+import CategoriesPage from './pages/admin/CategoriesPage';
+import PaymentMethodsPage from './pages/admin/PaymentMethodsPage';
+import TablesPage from './pages/admin/TablesPage';
+import PromotionsPage from './pages/admin/PromotionsPage';
+import UsersPage from './pages/admin/UsersPage';
+import POSSessionPage from './pages/admin/POSSessionPage';
+import ReportsPage from './pages/admin/ReportsPage';
+import ReservationsPage from './pages/admin/ReservationsPage';
+import DashboardPage from './pages/admin/DashboardPage';
 
 // POS Pages
 import TableViewPage from './pages/pos/TableViewPage';

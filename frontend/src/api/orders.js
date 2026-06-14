@@ -34,6 +34,7 @@ const ordersApi = {
       paymentMethod: o.paymentMethod,
       date: o.createdAt,
       paidAt: o.paidAt,
+      kitchenCompleted: Boolean(o.kitchenCompleted),
       items: (o.items || []).map((i) => ({
         id: i.id,
         productId: i.productId,
@@ -69,6 +70,7 @@ const ordersApi = {
         paymentMethod: o.paymentMethod,
         date: o.createdAt,
         paidAt: o.paidAt,
+        kitchenCompleted: Boolean(o.kitchenCompleted),
         items: (o.items || []).map((i) => ({
           id: i.id,
           productId: i.productId,

@@ -5,6 +5,7 @@ import Toggle from '../../components/Toggle';
 import Button from '../../components/Button';
 import QRCode from '../../components/QRCode';
 import Skeleton from '../../components/Skeleton';
+import { CAFE_NAME } from '../../config/brand';
 export default function PaymentMethodsPage() {
   const { success, error: showError } = useToast();
   const [methods, setMethods] = useState([]);
@@ -87,7 +88,7 @@ export default function PaymentMethodsPage() {
                 <Button size="sm" onClick={handleSaveUpiId} loading={saving}>Save UPI ID</Button>
                 {upiId && (
                   <div className="flex justify-center pt-2">
-                    <QRCode value={`upi://pay?pa=${upiId}&pn=OdooCafe`} size={140} />
+                    <QRCode value={`upi://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(CAFE_NAME)}`} size={140} />
                   </div>
                 )}
               </div>

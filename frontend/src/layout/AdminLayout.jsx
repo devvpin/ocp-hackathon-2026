@@ -37,7 +37,6 @@ export default function AdminLayout() {
         className={`hidden md:flex flex-col sticky top-0 h-screen transition-all duration-300 z-30 flex-shrink-0 ${isExpanded ? 'w-64' : 'w-16'}`}
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
-        onClick={() => setIsClicked(!isClicked)}
       >
         <Sidebar isExpanded={isExpanded} />
       </aside>

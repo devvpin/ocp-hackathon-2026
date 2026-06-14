@@ -98,7 +98,7 @@ export default function OrderPage() {
 
   // Auto-save draft order when cart changes
   useEffect(() => {
-    if (!tableId || items.length === 0) return;
+    if (!tableId || items.length === 0 || status !== 'draft') return;
 
     const saveDraft = async () => {
       try {
@@ -142,10 +142,11 @@ export default function OrderPage() {
   const getCategoryName = useCallback((catId) => categories.find((c) => c.id === catId)?.name || '', [categories]);
   
   useSocket(null, (msg) => {
-    if (orderId && ['kds:order_received', 'kds:stage_changed', 'kds:item_done', 'order:sent_to_kitchen', 'order:preparing', 'order:ready', 'order:served', 'order:kitchen_completed', 'order:completed', 'order:paid'].includes(msg.event)) {
+    const activeOrderId = searchParams.get('orderId') || orderId;
+    if (activeOrderId && ['kds:order_received', 'kds:stage_changed', 'kds:item_done', 'order:sent_to_kitchen', 'order:preparing', 'order:ready', 'order:served', 'order:kitchen_completed', 'order:completed', 'order:paid'].includes(msg.event)) {
       const p = msg.payload;
-      if (p.orderId === orderId) {
-        ordersApi.getById(orderId).then((res) => {
+      if (p.orderId === activeOrderId) {
+        ordersApi.getById(activeOrderId).then((res) => {
           const order = res.data;
           loadOrder({
             items: order.items.map((i) => ({
@@ -276,76 +277,82 @@ export default function OrderPage() {
   };
   const handleCompletePayment = async () => {
     if (items.length === 0) { showError('Cart is empty'); return; }
-    if (!kitchenCompleted) {
+    const editOrderId = searchParams.get('orderId') || orderId;
+    if (!editOrderId) { showError('No order to pay'); return; }
+
+    const canPay = kitchenCompleted || ['ready', 'served'].includes(status);
+    if (!canPay) {
       showError('Order cannot be paid until kitchen preparation is completed.');
       return;
     }
     if (!selectedPayment) { showError('Select a payment method'); return; }
     setPaymentLoading(true);
-    try {
-      const editOrderId = searchParams.get('orderId') || orderId;
-      const createPayload = {
-        tableId: tableId || null,
-        orderType,
-        customerId: customer?.id || null,
-        items: items.map((i) => ({
-          productId: i.productId,
-          quantity: i.quantity,
-        })),
-      };
-      if (coupon?.code) createPayload.couponCode = coupon.code;
 
-      let paymentOrderId;
+    try {
+      let paymentOrderId = editOrderId;
       let orderNumber;
-      if (editOrderId) {
+
+      if (status === 'draft') {
+        const createPayload = {
+          tableId: tableId || null,
+          orderType,
+          customerId: customer?.id || null,
+          items: items.map((i) => ({ productId: i.productId, quantity: i.quantity })),
+        };
+        if (coupon?.code) createPayload.couponCode = coupon.code;
         const res = await ordersApi.update(editOrderId, createPayload);
         paymentOrderId = res.data.id;
         orderNumber = res.data.orderNumber;
       } else {
-        const res = await ordersApi.create(createPayload);
-        paymentOrderId = res.data.id;
+        const res = await ordersApi.getById(editOrderId);
         orderNumber = res.data.orderNumber;
       }
 
-      // Build payment args
-      const payRef = selectedPayment === 'card' ? (cardRef || 'card-txn') : (selectedPayment === 'upi' ? 'upi-txn' : null);
-      const cashAmt = selectedPayment === 'cash' ? Number(cashTendered || totals.total) : null;
-      
+      if (selectedPayment === 'upi') {
+        // Show UPI QR directly in the modal — cashier confirms after customer pays
+        setPaymentLoading(false);
+        return;
+      }
+
+      // Cash / Card
+      const payRef = selectedPayment === 'card' ? (cardRef || 'card-txn') : null;
       const { default: paymentsApi } = await import('../../api/payments');
       await paymentsApi.processPayment({
         orderId: paymentOrderId,
         amount: totals.total,
         paymentMethod: selectedPayment,
-        transactionReference: payRef
+        transactionReference: payRef,
       });
-
-      // Display receipt
-      setCompletedOrder({
-        id: paymentOrderId,
-        orderNumber: orderNumber,
-        tableNumber: tableNumber || Number(tableId),
-        customerName: customer?.name || 'Walk-in',
-        paymentMethod: selectedPayment,
-        items: totals.items.map((i) => ({
-          name: i.name,
-          quantity: i.quantity,
-          total: i.price * i.quantity,
-          discount: i.discount || 0,
-        })),
-        subtotal: totals.subtotal,
-        tax: totals.taxTotal,
-        discount: totals.totalDiscount,
-        total: totals.total,
-      });
-      setReceiptModalOpen(true);
-      setPaymentModalOpen(false);
-      success('Payment completed!');
-      clearCart();
+      finishPayment(paymentOrderId, orderNumber, selectedPayment);
     } catch (err) {
       const msg = err?.response?.data?.error?.message || 'Payment failed';
       showError(msg);
     }
     setPaymentLoading(false);
+  };
+
+  const finishPayment = (paymentOrderId, orderNumber, method) => {
+    setCompletedOrder({
+      id: paymentOrderId,
+      orderNumber,
+      tableNumber: tableNumber || Number(tableId),
+      customerName: customer?.name || 'Walk-in',
+      paymentMethod: method,
+      items: totals.items.map((i) => ({
+        name: i.name,
+        quantity: i.quantity,
+        total: i.price * i.quantity,
+        discount: i.discount || 0,
+      })),
+      subtotal: totals.subtotal,
+      tax: totals.taxTotal,
+      discount: totals.totalDiscount,
+      total: totals.total,
+    });
+    setReceiptModalOpen(true);
+    setPaymentModalOpen(false);
+    success('Payment completed!');
+    clearCart();
   };
   const handlePrintReceipt = () => {
     window.print();
@@ -652,7 +659,7 @@ export default function OrderPage() {
                   Mark Served
                 </Button>
               )}
-              {['ready', 'served'].includes(status) && (
+              {(kitchenCompleted && ['ready', 'served'].includes(status)) || status === 'served' ? (
                 <Button 
                   size="lg" 
                   variant="primary" 
@@ -660,6 +667,16 @@ export default function OrderPage() {
                   onClick={() => setPaymentModalOpen(true)}
                 >
                   Pay Now
+                </Button>
+              ) : null}
+              {status === 'ready' && !kitchenCompleted && (
+                <Button 
+                  size="lg" 
+                  variant="secondary" 
+                  className="w-full py-3 text-lg font-bold shadow-cafe-lg opacity-70 cursor-not-allowed"
+                  disabled
+                >
+                  Waiting for Kitchen...
                 </Button>
               )}
               {['sent_to_kitchen', 'preparing'].includes(status) && (
@@ -750,14 +767,27 @@ export default function OrderPage() {
           
           {selectedPayment === 'upi' && upiMethod && (
             <div className="space-y-3 animate-slide-up">
-              <div className="flex justify-center bg-white p-4 rounded-xl border border-surface-200">
-                <QRCode
-                  value={`upi://pay?pa=${upiMethod.upiId || 'cafe@ybl'}&pn=OdooCafe&am=${totals.total}&cu=INR`}
-                  size={180}
-                  showCaption={false}
-                />
-              </div>
-              <p className="text-center text-lg font-bold text-surface-800">Scan to pay {formatCurrency(totals.total)}</p>
+              {upiMethod.upiId ? (
+                <>
+                  <div className="flex justify-center p-4 bg-white rounded-xl border border-surface-200">
+                    <QRCode
+                      value={`upi://pay?pa=${encodeURIComponent(upiMethod.upiId)}&pn=${encodeURIComponent(CAFE_NAME)}&am=${totals.total.toFixed(2)}&cu=INR&tn=${encodeURIComponent('Order payment')}`}
+                      size={200}
+                      showCaption={false}
+                    />
+                  </div>
+                  <p className="text-center text-xs text-surface-500">
+                    UPI ID: <span className="font-mono font-semibold text-surface-800">{upiMethod.upiId}</span>
+                  </p>
+                  <p className="text-center text-xl font-bold text-cafe-espresso tabular-nums">{formatCurrency(totals.total)}</p>
+                  <p className="text-center text-xs text-surface-400">Ask customer to scan with any UPI app, then click Confirm once paid.</p>
+                </>
+              ) : (
+                <div className="p-4 bg-warning-50 border border-warning-200 rounded-xl text-center">
+                  <p className="text-sm font-medium text-warning-800">UPI ID not configured.</p>
+                  <p className="text-xs text-warning-600 mt-1">Go to Admin → Payment Methods and set your UPI ID.</p>
+                </div>
+              )}
             </div>
           )}
           
@@ -781,12 +811,13 @@ export default function OrderPage() {
               onClick={handleCompletePayment}
               loading={paymentLoading}
               disabled={
-                !selectedPayment || 
+                !selectedPayment ||
                 (selectedPayment === 'cash' && cashTendered !== '' && Number(cashTendered) < totals.total) ||
-                ((selectedPayment === 'card' || selectedPayment === 'upi') && !cardRef && selectedPayment === 'card')
+                (selectedPayment === 'card' && !cardRef) ||
+                (selectedPayment === 'upi' && !upiMethod?.upiId)
               }
             >
-              Confirm Payment of {formatCurrency(totals.total)}
+              Confirm Payment · {formatCurrency(totals.total)}
             </Button>
           </div>
         </div>

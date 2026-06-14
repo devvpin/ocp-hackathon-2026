@@ -1,14 +1,12 @@
 /**
- * Currency formatter
+ * Currency formatter — Indian Rupees
  */
-const CURRENCY = import.meta.env.VITE_CURRENCY || 'INR';
-const LOCALE = import.meta.env.VITE_CURRENCY_LOCALE || 'en-IN';
-
 export function formatCurrency(amount) {
-  return new Intl.NumberFormat(LOCALE, {
+  return new Intl.NumberFormat('en-IN', {
     style: 'currency',
-    currency: CURRENCY,
+    currency: 'INR',
     minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
   }).format(amount || 0);
 }
 
@@ -17,12 +15,9 @@ export function formatCurrency(amount) {
  */
 export function formatDate(dateStr) {
   if (!dateStr) return '—';
-  const date = new Date(dateStr);
-  return new Intl.DateTimeFormat('en-US', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-  }).format(date);
+  return new Intl.DateTimeFormat('en-IN', {
+    year: 'numeric', month: 'short', day: 'numeric',
+  }).format(new Date(dateStr));
 }
 
 /**
@@ -30,14 +25,10 @@ export function formatDate(dateStr) {
  */
 export function formatDateTime(dateStr) {
   if (!dateStr) return '—';
-  const date = new Date(dateStr);
-  return new Intl.DateTimeFormat('en-US', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  }).format(date);
+  return new Intl.DateTimeFormat('en-IN', {
+    year: 'numeric', month: 'short', day: 'numeric',
+    hour: '2-digit', minute: '2-digit',
+  }).format(new Date(dateStr));
 }
 
 /**
@@ -45,11 +36,9 @@ export function formatDateTime(dateStr) {
  */
 export function formatTime(dateStr) {
   if (!dateStr) return '—';
-  const date = new Date(dateStr);
-  return new Intl.DateTimeFormat('en-US', {
-    hour: '2-digit',
-    minute: '2-digit',
-  }).format(date);
+  return new Intl.DateTimeFormat('en-IN', {
+    hour: '2-digit', minute: '2-digit',
+  }).format(new Date(dateStr));
 }
 
 /**

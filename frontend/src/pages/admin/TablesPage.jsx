@@ -20,10 +20,15 @@ export default function TablesPage() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [fRes, tRes] = await Promise.all([tablesApi.getFloors(), tablesApi.getAllTables()]);
-      setFloors(fRes.data);
-      setTables(tRes.data);
-      if (!activeFloor && fRes.data.length) setActiveFloor(fRes.data[0].id);
+      const fRes = await tablesApi.getFloors();
+      const floors = fRes.data;
+      setFloors(floors);
+      // Flatten tables from floors — no need to fetch live status on admin config page
+      const allTables = floors.flatMap((f) =>
+        (f.tables || []).map((t) => ({ ...t, floorId: f.id }))
+      );
+      setTables(allTables);
+      if (!activeFloor && floors.length) setActiveFloor(floors[0].id);
     } catch { showError('Failed to load data'); }
     setLoading(false);
   };

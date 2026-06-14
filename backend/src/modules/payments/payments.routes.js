@@ -1,10 +1,10 @@
 const express = require('express');
-const { PrismaClient } = require('@prisma/client');
-const prisma = new PrismaClient();
+const prisma = require('../../config/db');
 const { requireAuth } = require('../../middleware/auth');
 const { AppError } = require('../../middleware/errorHandler');
 const { broadcast } = require('../../websocket');
 const { updateTableStatus } = require('../../services/tableService');
+const { logActivity } = require('../../utils/activityLog');
 
 const router = express.Router();
 
@@ -80,6 +80,7 @@ router.post('/', async (req, res, next) => {
     }
     
     broadcast('order:paid', { orderId: result.order.id, tableId: result.order.tableId });
+    logActivity({ userId: req.user.sub, action: 'order.paid', entityType: 'order', entityId: orderId, metadata: { paymentMethod, amount: Number(amount) } });
 
     res.status(201).json(result);
   } catch (err) {

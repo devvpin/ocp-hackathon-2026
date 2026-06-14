@@ -74,6 +74,18 @@ enum OrderType {
   pickup
 }
 
+enum TableRequestType {
+  waiter
+  water
+  bill
+  clean
+}
+
+enum TableRequestStatus {
+  pending
+  resolved
+}
+
 model User {
   id           String    @id @default(uuid()) @db.Uuid
   name         String    @db.VarChar(255)
@@ -179,7 +191,7 @@ model Customer {
   id        String    @id @default(uuid()) @db.Uuid
   name      String    @db.VarChar(255)
   email     String?   @unique @db.VarChar(255)
-  phone     String?   @db.VarChar(50)
+  phone     String?   @db.VarChar(10)
   createdAt DateTime  @default(now()) @map("created_at")
   orders    Order[]
   bookings  Booking[]
@@ -290,7 +302,8 @@ model Booking {
   bookingDate DateTime      @map("booking_date")
   guestCount  Int           @map("guest_count")
   status      BookingStatus @default(pending)
-  notes       String?
+  notes       String?       @db.Text
+  createdBy   String?       @map("created_by") @db.Uuid
   createdAt   DateTime      @default(now()) @map("created_at")
   updatedAt   DateTime      @updatedAt @map("updated_at")
 

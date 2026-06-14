@@ -96,6 +96,8 @@ function serializeOrder(order) {
     createdAt: order.createdAt,
     paidAt: order.paidAt,
     receiptSentAt: order.receiptSentAt,
+    kitchenCompleted: order.kitchenCompleted,
+    orderType: order.orderType,
     table: order.table,
     customer: order.customer,
     coupon: order.coupon,

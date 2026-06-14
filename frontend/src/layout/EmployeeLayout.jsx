@@ -28,8 +28,14 @@ export default function EmployeeLayout() {
 
   const navLinks = (
     <>
+      <NavLink to="/pos" end className={({isActive}) => `px-3 py-1.5 rounded text-sm font-medium transition-colors ${isActive ? 'bg-cafe-roast text-cafe-foam' : 'text-cafe-foam/70 hover:bg-cafe-roast/50 hover:text-cafe-foam'}`}>
+        Floor Map
+      </NavLink>
       <NavLink to="/pos/orders" className={({isActive}) => `px-3 py-1.5 rounded text-sm font-medium transition-colors ${isActive ? 'bg-cafe-roast text-cafe-foam' : 'text-cafe-foam/70 hover:bg-cafe-roast/50 hover:text-cafe-foam'}`}>
         Orders
+      </NavLink>
+      <NavLink to="/pos/customers" className={({isActive}) => `px-3 py-1.5 rounded text-sm font-medium transition-colors ${isActive ? 'bg-cafe-roast text-cafe-foam' : 'text-cafe-foam/70 hover:bg-cafe-roast/50 hover:text-cafe-foam'}`}>
+        Customers
       </NavLink>
       <NavLink to="/kds" className={({isActive}) => `px-3 py-1.5 rounded text-sm font-medium transition-colors ${isActive ? 'bg-cafe-roast text-cafe-foam' : 'text-cafe-foam/70 hover:bg-cafe-roast/50 hover:text-cafe-foam'}`}>
         KDS

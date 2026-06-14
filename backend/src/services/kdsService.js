@@ -5,6 +5,7 @@ const { broadcast } = require('../websocket');
 const { updateTableStatus } = require('./tableService');
 const { AppError } = require('../middleware/errorHandler');
 const { changeOrderStatus } = require('./orderService');
+const { logActivity } = require('../utils/activityLog');
 
 async function startPreparing(orderId) {
   const items = await prisma.orderItem.findMany({
@@ -25,7 +26,8 @@ async function startPreparing(orderId) {
 
   broadcast('kds:stage_changed', { orderId, newStage: 'preparing' });
   broadcast('order:preparing', { orderId });
-  
+  logActivity({ action: 'kds.preparing', entityType: 'order', entityId: orderId });
+
   const order = await prisma.order.findUnique({ where: { id: orderId } });
   if (order && order.tableId) {
     await updateTableStatus(order.tableId);
@@ -42,9 +44,16 @@ async function markReady(orderId) {
 
   await changeOrderStatus(orderId, 'ready', null, 'Kitchen marked order as ready');
 
+  await prisma.order.update({
+    where: { id: orderId },
+    data: { kitchenCompleted: true },
+  });
+
   broadcast('kds:stage_changed', { orderId, newStage: 'ready' });
   broadcast('order:ready', { orderId });
-  
+  broadcast('order:kitchen_completed', { orderId });
+  logActivity({ action: 'kds.ready', entityType: 'order', entityId: orderId });
+
   const order = await prisma.order.findUnique({ where: { id: orderId } });
   if (order && order.tableId) {
     await updateTableStatus(order.tableId);
@@ -73,7 +82,8 @@ async function markCompleted(orderId) {
 
   broadcast('kds:stage_changed', { orderId, newStage: 'completed' });
   broadcast('order:kitchen_completed', { orderId });
-  
+  logActivity({ action: 'kds.completed', entityType: 'order', entityId: orderId });
+
   if (order && order.tableId) {
     await updateTableStatus(order.tableId);
   }
@@ -112,6 +122,7 @@ async function toggleItemDone(itemId) {
     orderId: updated.orderId,
     done: updated.kdsItemDone,
   });
+  logActivity({ action: updated.kdsItemDone ? 'kds.item_done' : 'kds.item_undone', entityType: 'order_item', entityId: updated.id, metadata: { orderId: updated.orderId } });
 
   await determineKitchenCompletion(updated.orderId);
 

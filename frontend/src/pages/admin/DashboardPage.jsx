@@ -17,18 +17,12 @@ export default function DashboardPage() {
   useEffect(() => {
     const fetchDashboardStats = async () => {
       try {
-        const todayStr = new Date().toISOString().split('T')[0];
-        const res = await reportsApi.getSummary({
-          startDate: `${todayStr}T00:00:00.000Z`,
-          endDate: `${todayStr}T23:59:59.999Z`
-        });
-        
-        // Mock active tables and reservations for today
+        const res = await reportsApi.getSummary({ period: 'today' });
         setStats({
           revenue: res.data?.revenue || 0,
           orders: res.data?.totalOrders || 0,
-          reservations: 0, 
-          activeTables: 0, 
+          reservations: 0,
+          activeTables: 0,
         });
       } catch (err) {
         showError('Failed to load dashboard statistics');

@@ -4,6 +4,7 @@ const prisma = require('../config/db');
 const { AppError } = require('../middleware/errorHandler');
 const { broadcast } = require('../websocket');
 const { updateTableStatus, broadcastTable } = require('./tableService');
+const { logActivity } = require('../utils/activityLog');
 
 function money(value) {
   return Math.round(Number(value || 0) * 100) / 100;
@@ -161,17 +162,13 @@ async function createDraft(input, reqUser) {
         total: calculation.total,
         items: { create: calculation.items },
       },
-      include: {
-        items: true,
-        table: true,
-        customer: true,
-        coupon: true,
-      },
+      include: { items: true, table: true, customer: true, coupon: true },
     });
   });
 
   await updateTableStatus(order.tableId);
   broadcast('order:created', { orderId: order.id, tableId: order.tableId });
+  logActivity({ userId: reqUser.sub, action: 'order.created', entityType: 'order', entityId: order.id, metadata: { total: Number(order.total), tableId: order.tableId, orderType } });
   return order;
 }
 
@@ -199,12 +196,7 @@ async function updateDraft(id, input, reqUser) {
         total: calculation.total,
         items: { create: calculation.items },
       },
-      include: {
-        items: true,
-        table: true,
-        customer: true,
-        coupon: true,
-      },
+      include: { items: true, table: true, customer: true, coupon: true },
     });
   });
 
@@ -212,14 +204,16 @@ async function updateDraft(id, input, reqUser) {
     await updateTableStatus(existing.tableId);
   }
   await updateTableStatus(order.tableId);
+  logActivity({ userId: reqUser.sub, action: 'order.updated', entityType: 'order', entityId: order.id, metadata: { total: Number(order.total) } });
   return order;
 }
 
 async function cancelOrder(id, reqUser) {
   const order = await getDraftOrder(id);
   assertOrderOwner(order, reqUser);
-
-  return changeOrderStatus(order.id, 'cancelled', reqUser.sub, 'Cancelled by user');
+  const cancelled = await changeOrderStatus(order.id, 'cancelled', reqUser.sub, 'Cancelled by user');
+  logActivity({ userId: reqUser.sub, action: 'order.cancelled', entityType: 'order', entityId: order.id });
+  return cancelled;
 }
 
 async function changeOrderStatus(id, newStatus, userId, notes = null, requirePrevious = null) {
@@ -260,8 +254,6 @@ async function sendToKitchen(id, reqUser) {
 
   const updated = await changeOrderStatus(id, 'sent_to_kitchen', reqUser.sub, 'Sent to Kitchen by POS', 'draft');
 
-
-
   const items = updated.items
     .filter((item) => item.product.showOnKds)
     .map((item) => ({
@@ -279,6 +271,7 @@ async function sendToKitchen(id, reqUser) {
     }));
 
   broadcast('kds:order_received', { orderId: updated.id, tableId: updated.tableId, items });
+  logActivity({ userId: reqUser.sub, action: 'order.sent_to_kitchen', entityType: 'order', entityId: updated.id });
   return updated;
 }
 
@@ -361,8 +354,8 @@ async function payOrder(id, input, reqUser) {
       throw new AppError('BAD_REQUEST', 'Cash received cannot be less than order total.');
     }
   }
-  if ((paymentMethod === 'card' || paymentMethod === 'upi') && !paymentReference) {
-    throw new AppError('BAD_REQUEST', 'Payment reference is required for card and UPI payments.');
+  if ((paymentMethod === 'card') && !paymentReference) {
+    throw new AppError('BAD_REQUEST', 'Payment reference is required for card payments.');
   }
 
   const paid = await prisma.$transaction(async (tx) => {
@@ -374,27 +367,32 @@ async function payOrder(id, input, reqUser) {
         paymentMethod,
         paymentReference: paymentReference || null,
       },
-      include: {
-        items: true,
-        table: true,
-        customer: true,
-        coupon: true,
+      include: { items: true, table: true, customer: true, coupon: true },
+    });
+
+    await tx.payment.create({
+      data: {
+        orderId: order.id,
+        amount: Number(order.total),
+        paymentMethod,
+        transactionReference: paymentReference || null,
       },
     });
 
     await tx.orderStatusHistory.create({
       data: {
         orderId: order.id,
-        status: 'paid',
-        changedById: reqUser.sub || null,
-        notes: `Paid via ${paymentMethod}`,
-      }
+        oldStatus: order.status,
+        newStatus: 'paid',
+        changedBy: reqUser.sub || null,
+      },
     });
     return o;
   });
 
   await updateTableStatus(paid.tableId);
   broadcast('order:paid', { orderId: paid.id, tableId: paid.tableId });
+  logActivity({ userId: reqUser.sub, action: 'order.paid', entityType: 'order', entityId: paid.id, metadata: { paymentMethod, total: Number(paid.total) } });
 
   return {
     paid,
@@ -426,26 +424,27 @@ async function refundOrder(id, input, reqUser) {
     await tx.refund.create({
       data: {
         orderId: order.id,
-        amount: amountToRefund,
-        reason: input.reason || null,
-        processedById: reqUser.sub,
-      }
+        refundAmount: amountToRefund,
+        refundReason: input.reason || 'No reason provided',
+        refundedBy: reqUser.sub,
+      },
     });
 
     await tx.orderStatusHistory.create({
       data: {
         orderId: order.id,
-        status: 'refunded',
-        changedById: reqUser.sub || null,
-        notes: `Refunded ${amountToRefund}. Reason: ${input.reason || 'None'}`,
-      }
+        oldStatus: order.status,
+        newStatus: 'refunded',
+        changedBy: reqUser.sub || null,
+      },
     });
-    
+
     return o;
   });
 
   await updateTableStatus(refunded.tableId);
   broadcast('order:refunded', { orderId: refunded.id, tableId: refunded.tableId });
+  logActivity({ userId: reqUser.sub, action: 'order.refunded', entityType: 'order', entityId: refunded.id, metadata: { amount: amountToRefund, reason: input.reason } });
 
   return refunded;
 }
@@ -459,7 +458,9 @@ async function serveOrder(orderId, reqUser) {
     throw new AppError('INVALID_STATE', 'Only ready orders can be served.');
   }
 
-  return await changeOrderStatus(orderId, 'served', null, 'Order served to customer');
+  const served = await changeOrderStatus(orderId, 'served', reqUser.sub, 'Order served to customer');
+  logActivity({ userId: reqUser.sub, action: 'order.served', entityType: 'order', entityId: orderId });
+  return served;
 }
 
 module.exports = {

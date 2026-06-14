@@ -9,6 +9,7 @@ const { requireAuth, requireRole } = require('../../middleware/auth');
 const validate = require('../../middleware/validate');
 const { AppError } = require('../../middleware/errorHandler');
 const { sendSuccess } = require('../../utils/response');
+const { logActivity } = require('../../utils/activityLog');
 
 const router = Router();
 
@@ -87,6 +88,7 @@ router.post('/open', requireAuth, requireRole('admin', 'employee'), async (req, 
       });
     }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
 
+    logActivity({ userId: req.user.sub, action: 'session.opened', entityType: 'session', entityId: session.id });
     return sendSuccess(res, 201, serializeSession(session));
   } catch (err) {
     return next(err);
@@ -118,6 +120,7 @@ router.post('/:id/close', requireAuth, requireRole('admin', 'employee'), validat
 
     const orderCount = await prisma.order.count({ where: { sessionId: id, status: 'paid' } });
 
+    logActivity({ userId: req.user.sub, action: 'session.closed', entityType: 'session', entityId: id, metadata: { revenue: closingRevenue, orderCount } });
     return sendSuccess(res, 200, {
       ...serializeSession(closed),
       orderCount,

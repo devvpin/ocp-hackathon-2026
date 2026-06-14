@@ -102,7 +102,9 @@ function groupItems(items) {
 router.get('/orders', async (req, res, next) => {
   try {
     const where = {
-      order: { status: { in: ['sent_to_kitchen', 'paid'] } },
+      order: {
+        status: { in: ['sent_to_kitchen', 'preparing', 'ready', 'served', 'paid'] },
+      },
       product: { showOnKds: true },
     };
 
