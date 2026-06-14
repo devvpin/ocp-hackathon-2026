@@ -420,10 +420,17 @@ export default function OrderPage() {
   const handleSendReceipt = async () => {
     if (!emailValue) { showError('Enter an email address'); return; }
     try {
-      await ordersApi.sendReceipt(completedOrder?.id, emailValue);
+      const res = await ordersApi.sendReceipt(completedOrder?.id, emailValue);
+      if (res?.data?.sent === false) {
+        showError(res.data.message || 'Receipt email could not be sent right now.');
+        return;
+      }
       success(`Receipt sent to ${emailValue}`);
       setEmailModalOpen(false);
-    } catch { showError('Failed to send receipt'); }
+    } catch (err) {
+      const msg = err?.response?.data?.error?.message || 'Failed to send receipt';
+      showError(msg);
+    }
   };
   const handleNewOrder = () => {
     clearCart();

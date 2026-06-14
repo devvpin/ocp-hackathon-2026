@@ -45,8 +45,8 @@ function getTransporter() {
 async function sendMail({ to, subject, html }) {
   const t = getTransporter();
   if (!t) {
-    console.log(`[Email] Would send to ${to}: ${subject}`);
-    return false;
+    console.log(`[Email] SMTP is not configured. Receipt email to ${to} was not sent.`);
+    return { ok: false, skipped: true, message: 'SMTP is not configured. Receipt email was not sent.' };
   }
 
   try {
@@ -56,10 +56,10 @@ async function sendMail({ to, subject, html }) {
       subject,
       html,
     });
-    return true;
+    return { ok: true, skipped: false, message: 'Receipt email sent successfully.' };
   } catch (error) {
     console.error('[Email] Failed to send receipt email:', error.message || error);
-    return false;
+    return { ok: false, skipped: false, message: 'Receipt email could not be sent right now.' };
   }
 }
 

@@ -55,12 +55,18 @@ function cartReducer(state, action) {
           .filter((i) => i.quantity > 0),
       };
 
-    case 'SET_TABLE':
+    case 'SET_TABLE': {
+      const sameTable = state.tableId === action.payload.tableId && state.tableNumber === action.payload.tableNumber;
+      if (sameTable) {
+        return state;
+      }
       return {
-        ...state,
+        ...initialState,
         tableId: action.payload.tableId,
         tableNumber: action.payload.tableNumber,
+        orderType: 'dine_in',
       };
+    }
 
     case 'SET_CUSTOMER':
       return { ...state, customer: action.payload };

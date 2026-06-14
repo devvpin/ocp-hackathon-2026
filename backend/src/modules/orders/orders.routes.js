@@ -459,9 +459,13 @@ router.post('/:id/send-receipt', requireAuth, requireRole('admin', 'employee'), 
       </div>
     `;
 
-    const emailSent = await sendMail({ to, subject: `${env.CAFE_NAME} receipt #${order.orderNumber}`, html });
-    if (!emailSent) {
-      throw new AppError('SERVICE_UNAVAILABLE', 'Receipt email could not be sent. Configure SMTP credentials first.');
+    const emailResult = await sendMail({ to, subject: `${env.CAFE_NAME} receipt #${order.orderNumber}`, html });
+    if (!emailResult.ok) {
+      return sendSuccess(res, 200, {
+        sent: false,
+        message: emailResult.message,
+        order: serializeOrder(order),
+      });
     }
 
     const updated = await prisma.order.update({
