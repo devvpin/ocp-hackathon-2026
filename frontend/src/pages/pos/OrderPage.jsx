@@ -422,7 +422,10 @@ export default function OrderPage() {
     try {
       const res = await ordersApi.sendReceipt(completedOrder?.id, emailValue);
       if (res?.data?.sent === false) {
-        showError(res.data.message || 'Receipt email could not be sent right now.');
+        const message = import.meta.env.DEV && res.data.details
+          ? `${res.data.message} ${res.data.details}`
+          : res.data.message || 'Receipt email could not be sent right now.';
+        showError(message);
         return;
       }
       success(`Receipt sent to ${emailValue}`);

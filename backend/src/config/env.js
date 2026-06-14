@@ -20,6 +20,8 @@ const env = {
   RAZORPAY_KEY_SECRET: process.env.RAZORPAY_KEY_SECRET || '',
 
   MAILTRAP_TOKEN: process.env.MAILTRAP_TOKEN || '',
+  MAILTRAP_USE_SANDBOX: process.env.MAILTRAP_USE_SANDBOX === 'true',
+  MAILTRAP_INBOX_ID: process.env.MAILTRAP_INBOX_ID || '',
 
   SMTP_HOST: process.env.SMTP_HOST || '',
   SMTP_PORT: parseInt(process.env.SMTP_PORT, 10) || 587,

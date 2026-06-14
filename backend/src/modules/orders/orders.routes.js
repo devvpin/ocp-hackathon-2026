@@ -464,6 +464,7 @@ router.post('/:id/send-receipt', requireAuth, requireRole('admin', 'employee'), 
       return sendSuccess(res, 200, {
         sent: false,
         message: emailResult.message,
+        details: emailResult.details,
         order: serializeOrder(order),
       });
     }
