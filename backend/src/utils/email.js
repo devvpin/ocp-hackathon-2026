@@ -16,9 +16,9 @@ let transporter;
 function getTransporter() {
   if (transporter) return transporter;
 
-  if (!env.SMTP_HOST || !env.SMTP_USER) {
+  if (!env.SMTP_HOST || !env.SMTP_USER || !env.SMTP_PASS) {
     if (env.NODE_ENV !== 'production') {
-      console.warn('[Email] SMTP not configured — emails will be skipped in dev mode.');
+      console.warn('[Email] SMTP credentials are not configured — receipt emails will be skipped in dev mode.');
     }
     return null;
   }
@@ -26,6 +26,7 @@ function getTransporter() {
   transporter = nodemailer.createTransport({
     host: env.SMTP_HOST,
     port: env.SMTP_PORT,
+    secure: env.SMTP_PORT === 465,
     auth: {
       user: env.SMTP_USER,
       pass: env.SMTP_PASS,
@@ -45,15 +46,21 @@ async function sendMail({ to, subject, html }) {
   const t = getTransporter();
   if (!t) {
     console.log(`[Email] Would send to ${to}: ${subject}`);
-    return;
+    return false;
   }
 
-  await t.sendMail({
-    from: env.EMAIL_FROM,
-    to,
-    subject,
-    html,
-  });
+  try {
+    await t.sendMail({
+      from: env.EMAIL_FROM,
+      to,
+      subject,
+      html,
+    });
+    return true;
+  } catch (error) {
+    console.error('[Email] Failed to send receipt email:', error.message || error);
+    return false;
+  }
 }
 
 module.exports = { sendMail };
