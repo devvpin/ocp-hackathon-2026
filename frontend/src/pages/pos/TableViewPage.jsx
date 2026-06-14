@@ -20,8 +20,9 @@ export default function TableViewPage() {
   const [todaysReservations, setTodaysReservations] = useState([]);
   const [now, setNow] = useState(() => Date.now());
 
-  // Show the "Reserved" badge this many ms before the booking time
-  const RESERVATION_WINDOW_MS = 30 * 60 * 1000; // 30 minutes
+  // Show "Reserved" badge from 30 min before booking through 2 hours after
+  const WINDOW_BEFORE_MS = 30 * 60 * 1000;  // 30 minutes
+  const WINDOW_AFTER_MS  = 2 * 60 * 60 * 1000; // 2 hours
 
   useSocket(null, (msg) => {
     if (msg.event === 'table:status_changed') {
@@ -52,22 +53,23 @@ export default function TableViewPage() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const today = new Date().toISOString().split('T')[0];
+        // Fetch from 24h ago to 7 days ahead using robust ISO strings
+        const startDate = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+        const endDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+        
         const [fRes, tRes, rRes] = await Promise.all([
           tablesApi.getFloors(),
           tablesApi.getAllTables(),
-          reservationsApi.getReservations({ date: today }),
+          reservationsApi.getReservations({ startDate, endDate }),
         ]);
         setFloors(fRes.data);
         setTables(tRes.data);
-        // Backend may return { data: [], total } or a plain array – normalize to array
+        // reservationsApi already does `.then(r => r.data)` so rRes is the { success, data } envelope
         const reservationsArr = Array.isArray(rRes)
           ? rRes
           : Array.isArray(rRes?.data)
             ? rRes.data
-            : Array.isArray(rRes?.reservations)
-              ? rRes.reservations
-              : [];
+            : [];
         setTodaysReservations(reservationsArr);
         if (fRes.data.length && !activeFloor) setActiveFloor(fRes.data[0].id);
       } catch { showError('Failed to load tables'); }
@@ -213,13 +215,13 @@ export default function TableViewPage() {
               const tStatus = table.tableStatus || 'available';
               const isOccupied = tStatus !== 'available';
 
-              // Badge shows 30 min before the booking time through the booking time
+              // Badge shows 30 min before booking through 2 hours after booking time
               const upcomingReservation = Array.isArray(todaysReservations)
                 ? todaysReservations.find((r) => {
                     if (r.tableId !== table.id) return false;
                     if (!['pending', 'confirmed', 'arrived'].includes(r.status)) return false;
                     const bookingMs = new Date(r.bookingDate).getTime();
-                    return now >= bookingMs - RESERVATION_WINDOW_MS && now <= bookingMs;
+                    return now >= bookingMs - WINDOW_BEFORE_MS && now <= bookingMs + WINDOW_AFTER_MS;
                   })
                 : null;
               const hasReservation = Boolean(upcomingReservation);

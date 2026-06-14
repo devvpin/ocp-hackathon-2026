@@ -36,7 +36,15 @@ function serialize(r) {
     createdAt: r.createdAt,
     updatedAt: r.updatedAt,
     customer: r.customer ? { id: r.customer.id, name: r.customer.name, phone: r.customer.phone } : null,
-    table: r.table ? { id: r.table.id, tableNumber: r.table.tableNumber, seatCount: r.table.seatCount, floorId: r.table.floorId } : null,
+    table: r.table
+      ? {
+          id: r.table.id,
+          tableNumber: r.table.tableNumber,
+          seatCount: r.table.seatCount,
+          floorId: r.table.floorId,
+          floorName: r.table.floor?.name ?? null,
+        }
+      : null,
   };
 }
 
@@ -73,21 +81,32 @@ async function checkSeatCount(tableId, guestCount) {
 // GET /api/reservations
 router.get('/', requireAuth, async (req, res, next) => {
   try {
-    const { status, date } = req.query;
+    const { status, date, dateTo, startDate, endDate } = req.query;
     const where = {};
 
     if (status) where.status = status;
 
-    if (date) {
-      const d = new Date(date);
-      const from = new Date(d); from.setHours(0, 0, 0, 0);
-      const to = new Date(d); to.setHours(23, 59, 59, 999);
-      where.bookingDate = { gte: from, lte: to };
+    // Legacy date params (timezone sensitive)
+    if (date || dateTo) {
+      const from = date ? new Date(new Date(date).setHours(0, 0, 0, 0)) : undefined;
+      const to   = dateTo ? new Date(new Date(dateTo).setHours(23, 59, 59, 999)) : (date ? new Date(new Date(date).setHours(23, 59, 59, 999)) : undefined);
+      where.bookingDate = { ...(from ? { gte: from } : {}), ...(to ? { lte: to } : {}) };
+    }
+
+    // Exact ISO timestamp filtering (robust against timezones)
+    if (startDate || endDate) {
+      const from = startDate ? new Date(startDate) : undefined;
+      const to   = endDate ? new Date(endDate) : undefined;
+      where.bookingDate = { 
+        ...(where.bookingDate || {}),
+        ...(from ? { gte: from } : {}), 
+        ...(to ? { lte: to } : {}) 
+      };
     }
 
     const reservations = await prisma.booking.findMany({
       where,
-      include: { customer: true, table: true },
+      include: { customer: true, table: { include: { floor: true } } },
       orderBy: { bookingDate: 'asc' },
     });
 
@@ -111,7 +130,7 @@ router.post('/', requireAuth, validate(reservationSchema, 'body'), async (req, r
         status: data.status || 'pending',
         createdBy: req.user.sub,
       },
-      include: { customer: true, table: true },
+      include: { customer: true, table: { include: { floor: true } } },
     });
 
     logActivity({ userId: req.user.sub, action: 'reservation.created', entityType: 'booking', entityId: reservation.id, metadata: { guestCount: data.guestCount, tableId: data.tableId } });
@@ -126,7 +145,7 @@ router.get('/:id', requireAuth, validate(idParamSchema, 'params'), async (req, r
   try {
     const reservation = await prisma.booking.findUnique({
       where: { id: req.validated.params.id },
-      include: { customer: true, table: true },
+      include: { customer: true, table: { include: { floor: true } } },
     });
     if (!reservation) throw new AppError('NOT_FOUND', 'Reservation not found.');
     return sendSuccess(res, 200, serialize(reservation));
@@ -154,7 +173,7 @@ router.patch('/:id', requireAuth, validate(idParamSchema, 'params'), validate(up
     const reservation = await prisma.booking.update({
       where: { id },
       data,
-      include: { customer: true, table: true },
+      include: { customer: true, table: { include: { floor: true } } },
     });
 
     logActivity({ userId: req.user.sub, action: 'reservation.updated', entityType: 'booking', entityId: id, metadata: { status: data.status } });

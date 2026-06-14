@@ -23,6 +23,7 @@ export default function ReservationsPage() {
   const { success, error: showError } = useToast();
   const [reservations, setReservations] = useState([]);
   const [tables, setTables] = useState([]);
+  const [floors, setFloors] = useState([]);
   const [customers, setCustomers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState('list');
@@ -43,15 +44,17 @@ export default function ReservationsPage() {
   const fetchAll = async () => {
     setLoading(true);
     try {
-      const [resData, tabData, cusData] = await Promise.all([
+      const [resData, tabData, cusData, floorData] = await Promise.all([
         reservationsApi.getReservations(),
         tablesApi.getAllTables(),
         customersApi.getAll(),
+        tablesApi.getFloors(),
       ]);
-      // reservations API now returns { data: [...] } via sendSuccess envelope
+      // reservations API returns { success, data: [...] } envelope
       setReservations(resData.data ?? resData);
       setTables(tabData.data ?? []);
       setCustomers(cusData.data ?? []);
+      setFloors(floorData.data ?? []);
     } catch {
       showError('Failed to load reservations');
     }
@@ -128,8 +131,9 @@ export default function ReservationsPage() {
   });
 
   const filteredDaily = reservations.filter((r) => {
-    const d = new Date(r.bookingDate).toISOString().split('T')[0];
-    return d === dailyDate;
+    const d = new Date(r.bookingDate);
+    const localStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    return localStr === dailyDate;
   });
 
   const field = (key, value) => setFormData((f) => ({ ...f, [key]: value }));
@@ -197,7 +201,11 @@ export default function ReservationsPage() {
                       </td>
                       <td className="px-4 py-3 text-sm text-cafe-grounds">{r.customer?.name || <span className="text-surface-400 italic">Walk-in</span>}</td>
                       <td className="px-4 py-3 text-sm text-cafe-grounds">{r.guestCount}</td>
-                      <td className="px-4 py-3 text-sm text-cafe-grounds">{r.table ? `Table ${r.table.tableNumber}` : <span className="text-surface-400 italic">Unassigned</span>}</td>
+                      <td className="px-4 py-3 text-sm text-cafe-grounds">
+                        {r.table
+                          ? <span>{r.table.floorName ? `${r.table.floorName} · ` : ''}Table {r.table.tableNumber}</span>
+                          : <span className="text-surface-400 italic">Unassigned</span>}
+                      </td>
                       <td className="px-4 py-3">
                         <span className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold border uppercase tracking-wide ${STATUS_COLORS[r.status]}`}>
                           {r.status}
@@ -236,7 +244,10 @@ export default function ReservationsPage() {
                       </div>
                       <p className="font-medium text-cafe-espresso">{r.customer?.name || 'Walk-in'}</p>
                       <p className="text-sm text-cafe-grounds/70 mt-0.5">
-                        {r.guestCount} Guests · {r.table ? `Table ${r.table.tableNumber}` : 'Unassigned'}
+                        {r.guestCount} Guests
+                        {r.table
+                          ? ` · ${r.table.floorName ? `${r.table.floorName} · ` : ''}Table ${r.table.tableNumber}`
+                          : ' · Unassigned'}
                       </p>
                       {r.notes && <p className="text-xs text-surface-400 mt-2 italic">"{r.notes}"</p>}
                       <div className="flex gap-3 mt-3">
@@ -269,9 +280,26 @@ export default function ReservationsPage() {
               <label className="block text-sm font-medium text-surface-700 mb-1">Table</label>
               <select value={formData.tableId} onChange={(e) => field('tableId', e.target.value)} className={inputCls}>
                 <option value="">Unassigned</option>
-                {tables.map((t) => (
-                  <option key={t.id} value={t.id}>Table {t.number ?? t.tableNumber} ({t.seats ?? t.seatCount} seats)</option>
-                ))}
+                {floors.map((floor) => {
+                  const floorTables = tables.filter((t) => t.floorId === floor.id && (t.isActive ?? t.active));
+                  if (!floorTables.length) return null;
+                  return (
+                    <optgroup key={floor.id} label={floor.name}>
+                      {floorTables.map((t) => (
+                        <option key={t.id} value={t.id}>
+                          Table {t.number ?? t.tableNumber} ({t.seats ?? t.seatCount} seats)
+                        </option>
+                      ))}
+                    </optgroup>
+                  );
+                })}
+                {tables
+                  .filter((t) => !floors.find((f) => f.id === t.floorId))
+                  .map((t) => (
+                    <option key={t.id} value={t.id}>
+                      Table {t.number ?? t.tableNumber} ({t.seats ?? t.seatCount} seats)
+                    </option>
+                  ))}
               </select>
             </div>
           </div>
