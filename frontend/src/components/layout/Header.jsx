@@ -27,7 +27,7 @@ export default function Header({ pageTitle, hamburgerAction, navLinks }) {
 
       {/* Center */}
       <div className="flex-1 text-center hidden sm:block">
-        <h1 className="text-lg font-display font-semibold uppercase tracking-wider">{pageTitle}</h1>
+        <h1 className="text-lg font-display font-semibold uppercase tracking-wider text-cafe-foam">{pageTitle}</h1>
       </div>
 
       {/* Right */}
