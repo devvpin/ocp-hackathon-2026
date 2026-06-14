@@ -19,12 +19,10 @@ const env = {
   RAZORPAY_KEY_ID: process.env.RAZORPAY_KEY_ID || '',
   RAZORPAY_KEY_SECRET: process.env.RAZORPAY_KEY_SECRET || '',
 
-  MAILTRAP_TOKEN: process.env.MAILTRAP_TOKEN || '',
-
-  SMTP_HOST: process.env.SMTP_HOST || '',
-  SMTP_PORT: parseInt(process.env.SMTP_PORT, 10) || 587,
-  SMTP_USER: process.env.SMTP_USER || '',
-  SMTP_PASS: process.env.SMTP_PASS || '',
+  MAILTRAP_HOST: process.env.MAILTRAP_HOST || 'sandbox.smtp.mailtrap.io',
+  MAILTRAP_PORT: parseInt(process.env.MAILTRAP_PORT, 10) || 2525,
+  MAILTRAP_USER: process.env.MAILTRAP_USER || '',
+  MAILTRAP_PASS: process.env.MAILTRAP_PASS || '',
   EMAIL_FROM: process.env.EMAIL_FROM || 'noreply@cafedemo.com',
 
   CAFE_NAME: process.env.CAFE_NAME || 'Odoo Cafe',

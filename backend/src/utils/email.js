@@ -1,76 +1,75 @@
-/**
- * email.js — Nodemailer-based email sender.
- *
- * Sets up the transporter and exposes a `sendMail` helper.
- */
+'use strict';
 
 const nodemailer = require('nodemailer');
-const { MailtrapTransport } = require('mailtrap');
+
 const env = require('../config/env');
 
 let transporter;
 
-/**
- * Lazily creates and caches the email transporter.
- * Prefers Mailtrap API transport and falls back to SMTP credentials when needed.
- */
+function isConfigured() {
+  return Boolean(env.MAILTRAP_HOST && env.MAILTRAP_PORT && env.MAILTRAP_USER && env.MAILTRAP_PASS);
+}
+
 function getTransporter() {
+  if (!isConfigured()) return null;
   if (transporter) return transporter;
 
-  if (env.MAILTRAP_TOKEN) {
-    transporter = nodemailer.createTransport(
-      MailtrapTransport({
-        token: env.MAILTRAP_TOKEN,
-      })
-    );
-
-    return transporter;
-  }
-
-  if (!env.SMTP_HOST || !env.SMTP_USER || !env.SMTP_PASS) {
-    if (env.NODE_ENV !== 'production') {
-      console.warn('[Email] Mailtrap token or SMTP credentials are not configured — receipt emails will be skipped in dev mode.');
-    }
-    return null;
-  }
-
   transporter = nodemailer.createTransport({
-    host: env.SMTP_HOST,
-    port: env.SMTP_PORT,
-    secure: env.SMTP_PORT === 465,
+    host: env.MAILTRAP_HOST,
+    port: env.MAILTRAP_PORT,
+    secure: env.MAILTRAP_PORT === 465,
     auth: {
-      user: env.SMTP_USER,
-      pass: env.SMTP_PASS,
+      user: env.MAILTRAP_USER,
+      pass: env.MAILTRAP_PASS,
     },
   });
 
   return transporter;
 }
 
-/**
- * Sends an email. Safe to call even if the email transport is not configured (no-ops in dev).
- *
- * @param {{ to: string, subject: string, html: string }} options
- * @returns {Promise<void>}
- */
-async function sendMail({ to, subject, html }) {
-  const t = getTransporter();
-  if (!t) {
-    console.log(`[Email] Email transport is not configured. Receipt email to ${to} was not sent.`);
-    return { ok: false, skipped: true, message: 'Email transport is not configured. Receipt email was not sent.' };
+function redact(value) {
+  if (!value) return value;
+  return String(value)
+    .replace(env.MAILTRAP_USER, '[mailtrap-user]')
+    .replace(env.MAILTRAP_PASS, '[mailtrap-pass]');
+}
+
+async function sendMail({ to, subject, html, text }) {
+  const mailer = getTransporter();
+
+  if (!mailer) {
+    return {
+      ok: false,
+      skipped: true,
+      message: 'Mailtrap SMTP credentials are not configured.',
+    };
   }
 
   try {
-    await t.sendMail({
+    const info = await mailer.sendMail({
       from: env.EMAIL_FROM,
       to,
       subject,
       html,
+      text,
     });
-    return { ok: true, skipped: false, message: 'Receipt email sent successfully.' };
+
+    return {
+      ok: true,
+      skipped: false,
+      message: 'Receipt email sent successfully.',
+      messageId: info.messageId,
+    };
   } catch (error) {
-    console.error('[Email] Failed to send receipt email:', error.message || error);
-    return { ok: false, skipped: false, message: 'Receipt email could not be sent right now.' };
+    const details = redact(error?.message || String(error));
+    console.error('[Email] Receipt email failed:', details);
+
+    return {
+      ok: false,
+      skipped: false,
+      message: 'Receipt email could not be sent right now.',
+      details: env.NODE_ENV === 'production' ? undefined : details,
+    };
   }
 }
 

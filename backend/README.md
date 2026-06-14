@@ -42,6 +42,10 @@ JWT_EXPIRY=8h
 FRONTEND_URL=http://localhost:5173
 # Mailtrap
 MAILTRAP_TOKEN=
+# Use sandbox only with a Mailtrap sandbox token and inbox id.
+MAILTRAP_USE_SANDBOX=false
+MAILTRAP_INBOX_ID=
+# For production sending, this must be from a verified Mailtrap sending domain.
 EMAIL_FROM=noreply@cafedemo.com
 CAFE_NAME=Odoo Cafe
 ```
