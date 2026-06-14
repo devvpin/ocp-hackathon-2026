@@ -49,6 +49,7 @@ export default function OrderPage() {
   const [emailValue, setEmailValue] = useState('');
   const [completedOrder, setCompletedOrder] = useState(null);
   const [paymentModalOpen, setPaymentModalOpen] = useState(false);
+  const razorpayKeyId = import.meta.env.VITE_RAZORPAY_KEY_ID || '';
   // Customer search
   const [customerSearch, setCustomerSearch] = useState('');
   const [customers, setCustomers] = useState([]);
@@ -275,6 +276,22 @@ export default function OrderPage() {
       showError(msg);
     }
   };
+  const loadRazorpayScript = () => new Promise((resolve, reject) => {
+    if (window.Razorpay) return resolve(true);
+    const existing = document.querySelector('script[src="https://checkout.razorpay.com/v1/checkout.js"]');
+    if (existing) {
+      existing.addEventListener('load', () => resolve(true), { once: true });
+      existing.addEventListener('error', () => reject(new Error('Failed to load Razorpay SDK.')), { once: true });
+      return;
+    }
+    const script = document.createElement('script');
+    script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+    script.async = true;
+    script.onload = () => resolve(true);
+    script.onerror = () => reject(new Error('Failed to load Razorpay SDK.'));
+    document.body.appendChild(script);
+  });
+
   const handleCompletePayment = async () => {
     if (items.length === 0) { showError('Cart is empty'); return; }
     const editOrderId = searchParams.get('orderId') || orderId;
@@ -309,14 +326,57 @@ export default function OrderPage() {
       }
 
       if (selectedPayment === 'upi') {
-        // Show UPI QR directly in the modal — cashier confirms after customer pays
         setPaymentLoading(false);
         return;
       }
 
-      // Cash / Card
-      const payRef = selectedPayment === 'card' ? (cardRef || 'card-txn') : null;
       const { default: paymentsApi } = await import('../../api/payments');
+
+      if (selectedPayment === 'card' && razorpayKeyId) {
+        const orderRes = await paymentsApi.createRazorpayOrder({ orderId: paymentOrderId });
+        await loadRazorpayScript();
+
+        const options = {
+          key: razorpayKeyId,
+          amount: orderRes.data.amount,
+          currency: orderRes.data.currency,
+          order_id: orderRes.data.razorpayOrderId,
+          name: CAFE_NAME,
+          description: `Order #${orderNumber}`,
+          handler: async (response) => {
+            try {
+              await paymentsApi.verifyRazorpay({
+                orderId: paymentOrderId,
+                razorpayOrderId: response.razorpay_order_id,
+                razorpayPaymentId: response.razorpay_payment_id,
+                razorpaySignature: response.razorpay_signature,
+              });
+              finishPayment(paymentOrderId, orderNumber, 'card');
+            } catch (err) {
+              const msg = err?.response?.data?.error?.message || 'Razorpay verification failed';
+              showError(msg);
+            }
+          },
+          prefill: {
+            name: customer?.name || 'Walk-in Customer',
+            email: customer?.email || '',
+          },
+          theme: { color: '#4F46E5' },
+          modal: {
+            ondismiss: () => {
+              setPaymentLoading(false);
+            },
+          },
+        };
+
+        const razorpay = new window.Razorpay(options);
+        razorpay.open();
+        setPaymentLoading(false);
+        return;
+      }
+
+      // Cash / manual card fallback
+      const payRef = selectedPayment === 'card' ? (cardRef || 'card-txn') : null;
       await paymentsApi.processPayment({
         orderId: paymentOrderId,
         amount: totals.total,
@@ -736,7 +796,7 @@ export default function OrderPage() {
                 <p className="text-sm font-bold text-surface-900">{method.name}</p>
                 <p className="text-xs text-surface-500 mt-0.5">
                   {method.type === 'cash' && 'Pay with cash'}
-                  {method.type === 'card' && 'Card / Digital payment'}
+                  {method.type === 'card' && (razorpayKeyId ? 'Card via Razorpay test gateway' : 'Card / Digital payment')}
                   {method.type === 'upi' && 'Scan QR code'}
                 </p>
               </button>
@@ -813,7 +873,7 @@ export default function OrderPage() {
               disabled={
                 !selectedPayment ||
                 (selectedPayment === 'cash' && cashTendered !== '' && Number(cashTendered) < totals.total) ||
-                (selectedPayment === 'card' && !cardRef) ||
+                (selectedPayment === 'card' && !razorpayKeyId && !cardRef) ||
                 (selectedPayment === 'upi' && !upiMethod?.upiId)
               }
             >
