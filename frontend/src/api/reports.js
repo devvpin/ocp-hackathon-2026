@@ -6,7 +6,7 @@ const reportsApi = {
     const [summary, salesTrend, topProducts, topCategories, topOrders] = await Promise.all([
       api.get(`/reports/summary?${params}`),
       api.get(`/reports/sales-trend?${params}`),
-      api.get(`/reports/top-products?${params}&limit=5`),
+      api.get(`/reports/top-products?${params}&limit=2`),
       api.get(`/reports/top-categories?${params}`),
       api.get(`/reports/top-orders?${params}`)
     ]);
